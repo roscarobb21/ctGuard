@@ -1,0 +1,11 @@
+.load{
+    min-width: 100vw;
+    min-height: 100vh;
+    background-color: black;
+}
+
+#spin-logo{
+    position: absolute;
+    margin-top:50vh;
+   margin-left: 50vw;
+}

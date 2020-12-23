@@ -1,0 +1,30 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300&display=swap');
+.App {
+  text-align: center;
+}
+body{
+  height:100%;
+  background-color: white;
+}
+
+html {
+  height: 100%; /* <------------ */
+}
+.container-fluid{
+  padding:0px !important;
+  overflow-x: hidden !important;
+}
+/*
+fluid header 1
+*/
+.text-header1{
+  font-size: calc(2em + 1vw);
+}
+.text-header2{
+  font-size: calc(2em );
+}
+
+body{
+  font-family: 'Exo 2', sans-serif !important;
+}

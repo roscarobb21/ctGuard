@@ -1,0 +1,25 @@
+.profile{
+    background-color: #fffafa;
+    width: 100% !important;
+    height: 100% !important;
+    top:0;
+    left:0;
+}
+
+.profile-container{
+    margin-top:2%;
+}
+
+.profile-img{
+    width:200px;
+    height:200px;
+    border-radius: 100px;
+}
+.profile-img:hover{
+cursor:pointer;
+opacity: 0.5;
+}
+.my-post-item{
+
+    margin-top: 2%;
+}

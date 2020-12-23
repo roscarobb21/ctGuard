@@ -1,0 +1,114 @@
+
+.helper{
+  border:solid;
+  border-color:red;
+}
+.wrapper{
+    
+     /* Full height */
+  height: 100%; 
+  /* Center and scale the image nicely */
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+.tooltip{
+  z-index: 9999;
+  position: fixed;
+}
+.space{
+  background-color:black;
+  height:25vh;
+}
+
+.fixed-div{
+  position:relative;
+}
+.home-text{
+  position:fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color:red;
+}
+
+/* width */
+::-webkit-scrollbar {
+  width: 2px;
+  background:black;
+}
+
+
+.panel {
+  background-color:white;
+  display: flex;
+  flex-flow: column;
+  min-height: 100vh;
+}
+
+
+
+
+.arrow{
+  position: fixed;
+  text-align: justify;
+  color:white;
+  top:0;
+  left:80%;
+}
+.arrow:hover{
+  cursor: pointer;
+}
+
+.blink_me {
+  animation: blinker 1s linear infinite;
+}
+
+@keyframes blinker {  
+  50% { opacity: 0; }
+}
+
+
+
+
+  .user-login-position{
+    margin-top:20vh;
+  }
+
+
+
+
+
+
+
+
+
+.info1-bar-short{
+  transition: width 1s ease-out;
+	  width: 100px;
+    height: 100px;
+    margin: 0 !important;
+}
+
+
+.info1-bar-long{
+  transition: width 1s ease-out;
+	  width: 33%;
+    height: 100px;
+    margin: 0 !important;
+}
+
+.info2-bar-short{
+  transition: width 1s ease-out;
+	  width: 100px;
+    height: 100px;
+    margin: 0 !important;
+}
+
+
+.info2-bar-long{
+  transition: width 1s ease-out;
+	  width: 33%;
+    height: 100px;
+    margin: 0 !important;
+}
