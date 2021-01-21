@@ -1,0 +1,77 @@
+
+    /**Chats*/
+    generateSideBar=()=>{
+            return(<div>
+                 <Row>
+                <Col sm={3}>
+                      <div>
+                  {this.generateUserTabLinks(this.state.chats)}
+                  </div>
+                </Col>
+                <Col sm={9}>
+                {this.state.chatId?this.generateChatRoomContent(this.state.chats, this.state.chatId):""}
+                </Col>  
+              </Row>
+               </div>
+               )
+    }
+generateUserTabLinks = (values)=>{
+    return values.map(value=>{
+        /**
+         * Generate tabs for every chat user has
+         */
+        return(
+        <div onClick={()=>{
+            this.socket.emit('create', value._id);
+            
+            this.setState({chatId:value._id})}
+            }>
+            {value.secondUsr}
+        </div>
+ 
+          )
+    })
+}
+
+    generateChatRoomContent=(values, id)=>{
+        if(id === null){
+            return
+        }
+        console.log('values are ', values)
+        let newValue=[];
+        console.log('id is : ', id)
+        values.forEach(value => {
+            if(value._id === id){
+                newValue.push(value);
+            }
+        });
+        console.log('new value is ', newValue)
+        return newValue.map(value=>{
+            /**
+             * Generate Tab pane for every chat that user has
+             */
+            return(
+                <div>
+                <div style={{height:'500px', width:'500px', overflowY:'scroll'}}>
+                    {this.generateMessageBubbles(value.messages)} 
+          </div>
+          <div>
+          <FormGroup>
+               <Label for="msgTextArea">Text Area</Label>
+       <Input type="textarea" name="text" id="msgTextArea" onKeyPress={evt=>{this.submitMsg(evt, value._id)}} onKeyDown={()=>{this.socket.emit('typing')}} />
+     </FormGroup>
+     </div>
+     </div>
+              )
+        })
+    }
+    generateMessageBubbles =(values)=>{
+       
+        return values.map(value=>{
+            /**
+             * generate bubbles in this return
+             */
+            return(<p>{value.text}</p>)
+        })
+        
+    }

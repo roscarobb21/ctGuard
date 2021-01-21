@@ -3,12 +3,17 @@ const { Schema } = mongoose;
 const bcrypt = require('bcrypt')
 
 
+const TagSchema = new mongoose.Schema({
+    tag: String,
+    count: Number
+});
 
 const userSchema = new mongoose.Schema({ 
 username:{
     type:String,
     unique:true,
     required: true,
+    text:true,
 },
 email:{
     type:String,
@@ -22,22 +27,72 @@ password:{
 firstName:String,
 lastName:String,    
 following:[],
-liked:[],
+upVoted:[],
 avatarUrl:{
     type:String,
     default:"https://cdn.iconscout.com/icon/free/png-256/avatar-370-456322.png"
-}
+},
+location:{
+    type:String,
+    default:"Global"
+},
+country:{
+    type:String,
+    default:"Romania"
+},
+region:{
+    type:String,
+    default:"Suceava",
+    text:true
+},
+tags:[
+    {tag:{type:String}, count:{type:Number}}
+],
+
+feed:{
+    type:Boolean,
+    default:true,
+},
+postsNumber:{
+    type:Number,
+    default:0
+},
+chatRooms:[],
 });
 
+
+
+
+userSchema.statics = {
+    searchPartial: function(q, callback) {
+        return this.find({
+            $or: [
+                { "username": new RegExp(q, "gi") },
+                { "region": new RegExp(q, "gi") },
+            ]
+        }, callback);
+    },
+
+    searchFull: function (q, callback) {
+        return this.find({
+            $text: { $search: q, $caseSensitive: false }
+        }, callback)
+    },
+
+    search: function(q, callback) {
+        this.searchFull(q, (err, data) => {
+            if (err) return callback(err, data);
+            if (!err && data.length) return callback(err, data);
+            if (!err && data.length === 0) return this.searchPartial(q, callback);
+        });
+    },
+}
 const User = mongoose.model('Users', userSchema);
 
 
+module.exports= User || mongoose.models.User;
 
-
-
-module.exports= User;
-
-
+//export default mongoose.models.Post || mongoose.model('Post', PostSchema)
 /*
 let main= async()=>{
     let pass= await bcrypt.hash('admin', 10);

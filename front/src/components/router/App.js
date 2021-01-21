@@ -7,14 +7,21 @@ import Login from '../RegisterAndLogIn/Login'
 import Homepage from '../Homepage/Homepage';
 import Profile from '../Profile/Profile';
 import HomeLogged from '../Pages/HomeLogged';
-
-
+import ProfileNotFriend from '../Pages/ProfileNotFriend';
+import PostPage from '../Pages/PostPage';
 import LoadingScreen from './LoadingScreen';
+import Search from '../Pages/Search.jsx';
+import Chat from '../Pages/Chat';
 
+
+import { io } from 'socket.io-client';
+
+
+
+import api from '../../constants/api';
 import './App.css';
 
 
-import api from '../../constants/api'
 
 const AnimatedSwitchPublic = withRouter(({location, auth}) => (
     
@@ -39,9 +46,15 @@ const AnimatedSwitchPrivate = withRouter(({location, auth}) => (
             <Switch location={location}>
             <Route exact path='/'
                     render={()=>{return(<Redirect to='/profile'/>)}}/>
-               
                 <Route exact path='/profile' component={Profile}/>
                 <Route exact path='/home' component={HomeLogged}/>
+                <Route exact path='/user/:id/' component={ProfileNotFriend}/>
+                <Route exact path='/post/:id/' component={PostPage}/>
+                <Route exact path='/search/:id/' component={Search}/>
+                <Route exact path='/chat/:id' component={Chat}/>
+                <Route exact path='/chat' render={()=>{
+                return(<Redirect to='/chat/all' />)
+            }}/>
             </Switch>
     
 ));
@@ -54,12 +67,15 @@ class App extends React.Component {
             isLoading: true,
             haveGoodToken: false
         }
+      
+        
     }
 
     componentWillMount() {
         setTimeout(function () {
             this.setState({isLoading: false});
         }.bind(this), 1000);
+
         let url = api + '/api';
 
         let options = {
@@ -74,7 +90,6 @@ class App extends React.Component {
     
         let Urlresponse =  fetch(url, options).then(response => response.json())
         .then(response => {
-        console.log('THe response is ', response)
             if(response){
                 if(1===response.ok){
                     console.log("User logged in ")
@@ -86,8 +101,9 @@ class App extends React.Component {
  
 
     }
-/*
-     componentDidMount(){
+
+     async componentDidMount(){
+         /*
             let token = await localStorage.getItem("token")
         let url = api + '/api';
 
@@ -112,8 +128,8 @@ class App extends React.Component {
         return
             }
         })
- 
-    }*/
+ */
+    }
 
     render() {
         console.log('this havegoodtoken ', this.state.haveGoodToken)
