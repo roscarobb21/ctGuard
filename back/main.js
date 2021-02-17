@@ -7,6 +7,7 @@ app.use(express.json());
 app.use(cors());
 const socket = require('./secretRouter/sockets')
 
+const cryptoRandomString = require('crypto-random-string');
 /**
  * PORT 
  */
@@ -15,6 +16,7 @@ const port = process.env.PORT || 3001;
 
 const router = require('./router/router')
 const secretRouter = require('./secretRouter/router')
+const adminRouter = require('./adminRouter/router')
 /**
  * TODO
  * Add method for Posts and User with tag support 
@@ -24,6 +26,11 @@ const NEED_DATA = false;
  * Logger
  */
 const writeToLog = require('./logger')
+/**
+ * Schedule adminTokens
+ */
+const AdminTokens= require('./models/AdminTokens');
+const schedule = require('node-schedule');
 
 
 const passport = require('passport')
@@ -35,7 +42,8 @@ require('./auth/auth')
 /**
  * import insertDefault method for db
  */
-const db = require('./db/db')
+const db = require('./db/db');
+const { async } = require('crypto-random-string');
 
 /**
  * routes
@@ -44,6 +52,7 @@ var http = require("http").Server(app);
 
 app.use('/', router)
 app.use('/api', passport.authenticate('jwt', {session: false}), secretRouter); 
+app.use('/admin', passport.authenticate('admin', {session: false}), adminRouter); 
 
 var io = require("socket.io")(http, {
   cors: {
@@ -55,9 +64,14 @@ var io = require("socket.io")(http, {
 
 
 io.sockets.on('connection', function(socket) {
-  console.log("new user connected ", socket.id)
-  socket.on('create', function(room) {
-    console.log('the room is : ', room)
+  socket.on('join_push_notifications', function(myid) {
+    console.log("----------------------")
+    console.log("User requested to join push notification on id : ", myid)
+    socket.join(myid);
+    console.log("----User Joined----")
+    console.log("-----------------")
+  });
+  socket.on('create_room', function(room) {
     socket.join(room);
   });
   socket.on('msg', function(room){
@@ -174,4 +188,18 @@ let puid = await Posts.find({followers:0}, {_id:1})
 
 ok();
 
-module.exports=http;
+const job = schedule.scheduleJob('0 1 * * *', function(fireDate){
+  AdminTokens.remove().then(async ()=>{
+    let adminTokens = await AdminTokens.countDocuments();
+    if(adminTokens===0){
+        let adminArr= [];
+        for(let i=0; i<100; i++){
+        let tok = await cryptoRandomString({length: 30, type: 'base64'});
+        adminArr.push({token:tok})
+        }
+        await AdminTokens.insertMany(adminArr)
+    }
+    console.log("Refreshed the Admin Tokens from database")
+  })
+});
+

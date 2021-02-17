@@ -12,8 +12,13 @@ import PostPage from '../Pages/PostPage';
 import LoadingScreen from './LoadingScreen';
 import Search from '../Pages/Search.jsx';
 import Chat from '../Pages/Chat';
+import SettingsPage from '../Profile/SettingsPage';
 
 
+import AdminRegister from '../Admin/AdminRegister';
+import AdminLogin from '../Admin/AdminLogin';
+import AdminDashboard from '../Admin/AdminDashboard';
+import AdminPost from '../Admin/AdminPost';
 import { io } from 'socket.io-client';
 
 
@@ -24,13 +29,16 @@ import './App.css';
 
 
 const AnimatedSwitchPublic = withRouter(({location, auth}) => (
-    
-      
+ 
             <Switch location={location}>
                  <Route exact path='/'
                     component={Homepage}/>
               <Route exact path='/login'
                     component={Login}/>
+              <Route exact path='/admin/register'
+                    component={AdminRegister}/>
+              <Route exact path='/admin/login'
+                    component={AdminLogin}/>
             <Route exact path='/profile' render={()=>{
                 return(<Redirect to='/' />)
             }}/>
@@ -41,8 +49,7 @@ const AnimatedSwitchPublic = withRouter(({location, auth}) => (
 ));
 
 const AnimatedSwitchPrivate = withRouter(({location, auth}) => (
-   
- 
+  
             <Switch location={location}>
             <Route exact path='/'
                     render={()=>{return(<Redirect to='/profile'/>)}}/>
@@ -52,11 +59,37 @@ const AnimatedSwitchPrivate = withRouter(({location, auth}) => (
                 <Route exact path='/post/:id/' component={PostPage}/>
                 <Route exact path='/search/:id/' component={Search}/>
                 <Route exact path='/chat/:id' component={Chat}/>
+                <Route exact path='/settings' component={SettingsPage}/>
                 <Route exact path='/chat' render={()=>{
-                return(<Redirect to='/chat/all' />)
+                return(<Redirect to='/chat/all' />)  
             }}/>
+                <Route exact path='/admin/dashboard' render={()=>{
+                    return(<Redirect to='/profile'/>)
+                }}/>
             </Switch>
     
+));
+
+const AnimatedSwitchAdmin = withRouter(({location, auth}) => (
+ 
+    <Switch location={location}>
+    <Route exact path='/'
+            render={()=>{return(<Redirect to='/profile'/>)}}/>
+        <Route exact path='/profile' component={Profile}/>
+        <Route exact path='/home' component={HomeLogged}/>
+        <Route exact path='/user/:id/' component={ProfileNotFriend}/>
+        <Route exact path='/post/:id/' component={PostPage}/>
+        <Route exact path='/search/:id/' component={Search}/>
+        <Route exact path='/chat/:id' component={Chat}/>
+        <Route exact path='/settings' component={SettingsPage}/>
+
+        <Route exact path='/admin/dashboard' component={AdminDashboard}/>
+        <Route exact path='/admin/post/:id' component={AdminPost}/>
+        <Route exact path='/chat' render={()=>{
+        return(<Redirect to='/chat/all' />)
+    }}/>
+    </Switch>
+
 ));
 
 
@@ -65,7 +98,8 @@ class App extends React.Component {
         super(props)
         this.state = {
             isLoading: true,
-            haveGoodToken: false
+            haveGoodToken: false,
+            isAdmin:false,
         }
       
         
@@ -91,9 +125,9 @@ class App extends React.Component {
         let Urlresponse =  fetch(url, options).then(response => response.json())
         .then(response => {
             if(response){
-                if(1===response.ok){
-                    console.log("User logged in ")
-                    this.setState({haveGoodToken:true})
+                if(1===response.ok ){
+                    console.log("User logged in ", response)
+                    this.setState({haveGoodToken:true, isAdmin:response.user.isAdmin})
                 }
         return
             }
@@ -144,7 +178,7 @@ class App extends React.Component {
                 <Container fluid>
                     <Row>
                         <Col>
-                           {this.state.haveGoodToken?<AnimatedSwitchPrivate/>:<AnimatedSwitchPublic/>}
+                           {(this.state.isAdmin && this.state.haveGoodToken)?<AnimatedSwitchAdmin/>:this.state.haveGoodToken?<AnimatedSwitchPrivate/>:<AnimatedSwitchPublic/>}
                         </Col>
                     </Row>
                   <Row>

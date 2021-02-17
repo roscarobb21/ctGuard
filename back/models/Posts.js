@@ -10,6 +10,16 @@ const Comment=new mongoose.Schema({
     postDate:{type:Date}
     })
 
+const AuthResp=new mongoose.Schema({
+      postedBy:{type:String},
+      body:{type:String},
+      category:{type:String},
+      previousStatus:{type:String},
+      currentStatus:{type:String},
+      postDate:{type:Date, default:Date.now()},
+      media:[]    
+        })
+
 const postSchema = new mongoose.Schema({ 
 header:{
     type:String,
@@ -25,6 +35,7 @@ upVotes:{
     type:Number,
     default:0
 },
+upVoted:[],
 followers:{
     type:Number,
     default:0,
@@ -37,6 +48,7 @@ comments:[{type:Comment}],
 media:[{type:String}],
 datePosted:{
     type:Date,
+    default:Date.now(),
 },
 updatedDate:{
     type:Date,
@@ -50,8 +62,8 @@ category:{
     default:"Request"
 },
 status:{
-    type:Number,
-    default:1
+    type:String,
+    default:"New"
 },
 blockStatus:{
     type:String,
@@ -61,9 +73,22 @@ authorities:{
     type:Boolean,
     default:false,
 },
-authoritiesResponse:{
+authoritiesResponse:[{type:AuthResp}],
+lastUpdated:{
+    type:Date,
+    default:Date.now(),
+},
+interestedInComments:{
+    type:Number,
+    default:0,
+},
+lat:{
     type:String,
-    default:""
+    default:0,
+},
+long:{
+    type:String,
+    default:0,
 }
 });
 /**

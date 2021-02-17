@@ -10,11 +10,23 @@ const openGeocoder = require('node-open-geocoder');
 const { random } = require('faker')
 const { post } = require('../router/router')
 const { ObjectId } = require('mongodb');
+
 const { runInNewContext } = require('vm')
 
 
 
+const bcrypt = require('bcrypt')
 
+
+/**
+ * Extracts mentions and hashtags from a string
+ */
+const extract = require('mention-hashtag')
+
+
+const NotificationQ = require('../models/notificationQueue')
+
+const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require('constants')
 //console.log("app is ", app)
 
 var imgStorage = multer.diskStorage({
@@ -62,13 +74,11 @@ else {
  * localhost:{port}/api GET USER INFO
  */
 
-
-
   router.get('/', async (req, res, next) => {
     let id = req.user._id;
     let user = await User.findOne({_id:id})
 
-    let newUser = {id:user._id, email:user.email, avatarUrl:user.avatarUrl, username:user.username, liked :user.liked, following: user.following, country: user.country, region: user.region, upVoted:user.upVoted, feed:user.feed}
+    let newUser = {id:user._id, email:user.email, avatarUrl:user.avatarUrl, username:user.username, liked :user.liked, following: user.following, country: user.country, region: user.region, upVoted:user.upVoted, feed:user.feed, isAdmin:user.isAdmin}
     if(user){
         res.json({ok:1, user:newUser})
     }
@@ -76,6 +86,66 @@ else {
         res.json({ok:0})
     }
 });
+
+/**
+ * Route to change user password to a new one
+ */
+
+ router.post('/changePass', async (req, res, next)=>{
+    let uid = req.user._id;
+    let oldPass = req.body.oldPass;
+    let newPass = req.body.newPass;
+    let confirm = req.body.confirm;
+
+    let found = await User.findOne({_id:uid});
+    if(found){
+        if(newPass === confirm && await bcrypt.compare(oldPass, found.password)){
+            let verification = await bcrypt.compare(newPass, found.password)
+            if(verification){
+                res.json({ok:0, err:'New password can\'t match previous'})
+            }else {
+                let passHash = await bcrypt.hash(newPass, 10);
+                await User.updateOne({_id:uid}, {password : passHash});
+                res.json({ok:1, msg:'Password changed successfull'})
+                return
+            }
+        }else {
+            console.log('dontchange ')
+            res.json({ok:0, err:'Information provided not correct'})
+            return;
+        }
+    }else {
+        res.json({ok:0, err:'user not found'})
+        return;
+    }
+
+ })
+ /**
+  * Change user info route 
+  */
+ router.post('/changeInfo', async (req, res, next)=>{
+     let uid = req.user._id;
+     let email = req.body.email.length>0?req.body.email:"NOCHANGE";
+     let username = req.body.username.length>0?req.body.username:"NOCHANGE";
+     let found = await User.findOne({_id:uid});
+     if( found ){
+         if(email !== "NOCHANGE"){
+        await User.updateOne({_id:found._id}, {
+            email:email,
+        })
+    }
+    if(username !== "NOCHANGE"){
+        await User.updateOne({_id:found._id}, {
+            username:username,
+        })
+    }
+res.json({ok:1, msg:'Info updated !'})
+return
+        
+     }else {
+         res.json({ok:0, err:'User not found'})
+     }
+ })
 
 /**
  * Get stranger user info
@@ -109,7 +179,9 @@ router.get('/user?', async (req, res, next)=>{
 })
 
 
-
+/**
+ * Upvote Post
+ */
   router.post('/up?', async (req, res, next)=>{
     let id = req.query.id;
     let uid = req.user._id;
@@ -131,6 +203,11 @@ router.get('/user?', async (req, res, next)=>{
                 await User.updateOne({_id:uid},{ $pull:{
                     upVoted:id.toString()
                 }})
+                await Posts.updateOne({_id:id}, {
+                    $pull:{
+                        upVoted:found._id.toString()
+                    }
+                })
                  /**
                  * Update user tags
                  * Iterates through upvoted post's tags and check if it exists in user's tag field
@@ -162,6 +239,11 @@ router.get('/user?', async (req, res, next)=>{
                  * if exists increments
                  * if doesnt exist , adds
                  */
+                await Posts.updateOne({_id:id}, {
+                    $push:{
+                        upVoted:found._id.toString()
+                    }
+                })
                 let getPostTags = await Posts.findOne({_id:id})
                 getPostTags.tags.forEach(element => {
                     const tagFound = found.tags.some(el => el.tag === element);
@@ -291,6 +373,7 @@ if(usrPost){
     res.json({ok:0, err:"You don't have any posts"})
 }
 })
+
 /**
  * Get info regarding specific post
  * PostPage
@@ -305,16 +388,20 @@ if(pid.toString().length!== 24 ){
 let found = await User.findOne({_id:uid})
 if(found){
     let postFound = await Posts.findOne({_id:pid})
+    
     if(postFound){
         //return post
-        let up=false, follow=false;
+        let up=false, follow=false, sub=false; 
         if(found.upVoted.includes(postFound._id.toString())){
-            up=true;
+            up= true;
         }
         if(found.following.includes(postFound._id.toString())){
             follow= true;
         }
-        res.json({ok:1, post:postFound, up:up, follow:follow, user:found})
+        if(found.subscribed.includes(postFound._id.toString())){
+            sub= true;
+        }
+        res.json({ok:1, post:postFound, up:up, follow:follow, user:found, subscribe:sub})
         return
     }else {
         res.json({ok:0, err:"post not found"})
@@ -357,7 +444,7 @@ router.post('/posts', async(req, res, next)=>{
                         });
                     }
                 });
-    let usr = await User.updateOne({_id:id}, {tags:user.tags, $inc:{postsNumber:1}})
+    let usr = await User.updateOne({_id:id}, {tags:user.tags, $inc:{postsNumber:1, postPoints:5}})
     if (done){
         res.json({"ok":1, postId:done._id})
     }else {
@@ -382,9 +469,24 @@ router.post('/postmedia', postUpload.any('image'), async function (req, res, nex
 
 router.post('/profileAvatar', uploadImg.single('avatar'), async function (req, res, next) {
     let user = req.user;
+    let uid = req.user._id;
     let file = req.file;
     if(file){
-        let found = await User.updateOne({_id:user._id}, {avatarUrl: "http://localhost:5000/"+user._id+".png"});
+        let update = await User.updateOne({_id:user._id}, {avatarUrl: "http://localhost:5000/"+user._id+".png"});
+        let found = await User.findOne({_id:uid});
+        let chatroomsUser = found.chatRooms;
+        let chatRooms = await ChatRooms.find({_id:{$in:chatroomsUser}})
+        let first = await ChatRooms.update({
+            _id:chatroomsUser, firstUsr:found._id.toString()
+        }, 
+        {firstAvatarUrl:found.avatarUrl})
+        let second = await ChatRooms.update({
+            _id:chatroomsUser, secondUsr:found._id.toString()
+        }, {secondAvatarUrl:found.avatarUrl})
+
+        console.log('first : ',first )
+        console.log('second : ', second)
+
         res.json({ok:1});
     }else {
         res.json({ok:0})
@@ -406,8 +508,7 @@ router.post('/profileAvatar', uploadImg.single('avatar'), async function (req, r
   /**
    * Get feed posts
    */
-
-  router.get('/feed', async (req, res, next )=>{
+    router.get('/feed', async (req, res, next )=>{
     let uid = await req.user._id;
     let found = await User.findOne({_id:uid});
     if (found){
@@ -450,6 +551,10 @@ router.post('/profileAvatar', uploadImg.single('avatar'), async function (req, r
           /**DEBUG MEASURE */
           if(getImportantposts.length<6){
               let random = await Posts.aggregate([{$sample:{size:10}}])
+              random.forEach(element => {
+                element.userUpVoted =  element.upVoted.includes(uid.toString());
+           });
+           console.log("random posts : ", random)
               res.json({ok:1, posts:random})
               return
           }
@@ -461,7 +566,11 @@ router.post('/profileAvatar', uploadImg.single('avatar'), async function (req, r
           
         postsFeed=postsFeed.concat(getImportantposts)
         postsFeed=postsFeed.concat(getLessPosts)
+        postsFeed.forEach(element => {
+            console.log('element is ', element)
+       });
         console.log("returned posts ", postsFeed)
+
         res.json({ok:1, posts:postsFeed})
     }else {
         res.json({ok:0, err:'user not found'});
@@ -481,6 +590,130 @@ router.post('/profileAvatar', uploadImg.single('avatar'), async function (req, r
           res.json({ok:0, err:"user not found"})
       }
   })
+
+  /**
+ * Post a comment
+ * @param {*} u1 
+ * @param {*} u2 
+ */
+router.post('/comment', async(req, res, next)=>{
+    let uid = req.user._id;
+    let io = req.app.get('socketio');
+    let found = await User.findOne({_id:uid})
+    let pid = req.body.postID;
+    let comm= req.body.body.trim();
+
+    let postFound = await Posts.findOne({_id:pid})
+
+    if (found && postFound){
+        let obj = {}
+        obj.postId=postFound._id.toString();
+        obj.postedBy = found._id.toString();
+       obj.avatarUrl= found.avatarUrl;
+       obj.body= comm;
+       obj.postDate= Date.now();
+        await Posts.update({_id:pid}, {$push:{comments:[obj]}})
+        /**
+         * Push comment notification to 
+         * Notification Queue of subscribed users
+         */
+        /**
+         * Increment number on notifications queue on users that subscribed
+         * Increment only if uid is not mine
+         * No need for notifications that I posted a comment, already know that
+         */
+        /**
+         * Get subscribed users
+         * emit to users which are subscribed
+         */  await NotificationQ.updateMany({
+            "comments.postId":postFound._id.toString(),
+            user_id:{
+                $ne:found._id.toString()
+            }
+        }, {
+            latestComment:Date.now(),
+            $inc:{
+                "comments.$.number":1
+            }
+        })
+        let a = await NotificationQ.find({
+            "comments.postId":postFound._id.toString(),
+        })
+        a.forEach(element => {
+        io.to(element.user_id.toString()).emit('comment', postFound._id.toString())
+        });
+        res.json({ok:1, msg:'posted'})
+        return;
+    }else {
+        res.json({ok:0, err:'User or Post not found'})
+        return
+    }
+})
+/**
+ * Subscribe to comment notifications from posts
+ */
+router.post('/subscribe?', async(req, res, next)=>{
+    let uid = req.user._id;
+    let subid= req.query.id;
+    let found = await User.findOne({_id:uid})
+    let postFound = await Posts.findOne({_id:subid})
+    if(found && found.subscribed && postFound){
+        if(found.subscribed.includes(subid.toString())){
+            //delete
+            await User.updateOne({_id:uid}, {$pull:{subscribed:subid.toString()}})
+            let userQueue = await NotificationQ.findOne({user_id:uid});
+            let commentQueue= userQueue.comments;
+            const check = obj => obj.postId === subid.toString();
+            if(commentQueue.some(check)){
+               //exists
+               //pull from db
+                await NotificationQ.findOneAndUpdate({
+                    user_id:uid,
+                }, {
+                    $pull:{
+                       comments:{
+                          postId:subid,
+                       }
+                    }
+                })
+                res.json({ok:1, msg:"Unsubscribed"})
+                return;
+            }else {
+                //doesn't exist
+                //throw err
+                res.json({ok:0, err:"Cannot unsubscribe because postId or user not found"})
+            }
+            res.json({ok:1, msg:"Unsubscribed"})
+            return
+        }else{
+            //add
+            await User.updateOne({_id:uid}, {$push:{subscribed:subid.toString()}})
+            //check if queue exists or not
+            let userQueue = await NotificationQ.findOne({user_id:uid});
+            let commentQueue = userQueue.comments;
+            const check = obj => obj.postId === subid.toString();
+            if(commentQueue.some(check)){
+                res.json({ok:0, err:"Cannot subscribe because postId or user not found"})
+                return
+            }else {
+                //doesn't exist
+                //add array
+                let commentNotificationObj = {}
+                commentNotificationObj.postId= subid.toString();
+                commentNotificationObj.postHeader = postFound.header;
+                commentNotificationObj.number= 0;
+                await NotificationQ.findOneAndUpdate({user_id:uid},
+                    {$push:{
+                        comments:commentNotificationObj
+                    }})
+            }
+            res.json({ok:1, msg:"Subscribed"})
+            return
+        }
+    }else {
+        res.status(404).json({ok:0, err:'User or Sub list not found'})
+    }
+})
 
 /**
  * Search Route
@@ -510,7 +743,6 @@ router.post('/profileAvatar', uploadImg.single('avatar'), async function (req, r
          res.json({ok:0, err:'user not found'})
          return
          }
-     res.json({ok:1, search:'true'})
  })
 
 
@@ -528,28 +760,27 @@ router.post('/profileAvatar', uploadImg.single('avatar'), async function (req, r
      let tFound = await User.findOne({_id:tuid});
      /**Check if both (to and from ) users are valid */
      if(fFound && tFound){
-       let response = fFound.chatRooms.find(element => tFound.chatRooms.includes(element));    
-      
-        if(response!== undefined ){
-            let getChatRoom = await ChatRooms.findOne({_id:response})
-            console.log('Return !undefined')
-            res.json({ok:2, chatroom:getChatRoom});
-            return;
+        let check = fFound.chatRooms.some(r=> tFound.chatRooms.indexOf(r) >= 0)
+        if(!check){
+            //Create new ChatRoom
+            let chat = await ChatRooms.create({firstUsr:fFound._id.toString(), secondUsr:tFound._id.toString(), firstAvatarUrl:fFound.avatarUrl, secondAvatarUrl:tFound.avatarUrl});
+            if(chat){
+                //created
+                await User.findOneAndUpdate({_id:fFound._id}, {$addToSet:{chatRooms:chat._id}})
+                await User.findOneAndUpdate({_id:tFound._id}, {$addToSet:{chatRooms:chat._id}})
+                await NotificationQ.findOneAndUpdate({user_id:fuid.toString()}, {$addToSet:{rooms:{roomId:chat._id.toString(), number:0}}})
+                await NotificationQ.findOneAndUpdate({user_id:tuid.toString()}, {$addToSet:{rooms:{roomId:chat._id.toString(), number:0}}})
+               // console.log("ADDED")
+            }
+        }else {
+            //Return chatRoom
+            console.log("Return chatROom")
+            let getChatRoom = await ChatRooms.find({_id:{$in:fFound.chatRooms}}).sort({latestUpdate:-1}).limit(10)
+            res.json({ok:1, msg:'ffound', chat:getChatRoom})
         }
-        /**if Valid create chat room */
-        let chat = await ChatRooms.insertMany({firstUsr:fFound._id, secondUsr:tFound._id, firstAvatarUrl:fFound.avatarUrl, secondAvatarUrl:tFound.avatarUrl});
-        console.log('the room created has id : ', chat[0])
-        await User.updateOne({_id:fuid}, {$push:{chatRooms:chat[0]._id}})
-        await User.updateOne({_id:tuid}, {$push:{chatRooms:chat[0]._id}})
-        res.json({ok:1, chatroom:chat._id});
-        return;
-     }else if(fFound){
-        let getChatRoom = await ChatRooms.find({_id:{$in:fFound.chatRooms}}).sort({latestUpdate:-1}).limit(10)
-        res.json({ok:1, msg:'ffound', chat:getChatRoom})
-     }
-     else {
-         /**If not valid return error */
-         res.json({ok:0, err:'From or To user not found'})
+
+     }else {
+         res.json({ok:0, err:"User not found!"})
      }
  })
 
@@ -583,16 +814,72 @@ router.get('/room?', async(req, res, next)=>{
          res.json({ok:0, err: 'user not found'})
          return
      }
-     /*
-     if(found){
-        let chat = await ChatRooms.find({_id:{$in:found.chatRooms}})
-        res.json({ok:1, chats:chat})
-        return
-     }else {
-         res.json({ok:0, err:'user not found'})
-     }*/
-     res.json({ok:1, chat:found.chatRooms})
+     let avatars = []
+     let protoAvatars = await ChatRooms.find({_id: found.chatRooms});
+     protoAvatars.forEach(element => {
+         if(element.firstUsr!==uid){
+             avatars.push(element.firstAvatarUrl)
+         }else if(element.secondUsr!==uid){
+             avatars.push(element.secondAvatarUrl)
+         }
+     });
+     let newChats=[];
+     let i=0;
+     found.chatRooms.forEach(element => {
+         let obj={}
+         obj.chat = element;
+        obj.avatar= avatars[i++];
+        newChats.push(obj)
+     });
+    console.log('avatars are ', newChats)
+     res.json({ok:1, chat:newChats,avatars:avatars, uid: found._id.toString()})
  })
+
+/**
+ * Clear messages notifications room queue
+ */
+router.get('/clearQueue?', async (req, res, next)=>{
+    console.log("CLEAR Q")
+    let uid = req.user._id;
+    let qid= req.query.id;
+    console.log("UID IS ", uid)
+    console.log("QID IS ", qid)
+    let QFLAG=0;
+    let found = await User.findOne({_id:uid});
+    if(found && qid){
+    let queueFound = await NotificationQ.findOne({user_id:uid});
+    let hokey = await NotificationQ.updateOne({user_id:uid.toString(), "rooms.roomId":qid}, {"rooms.$.number":0});
+    console.log("THIS IS HOKEY : ", hokey)
+
+return
+    }else {
+res.json({ok:0, err: 'user not found'})
+return;
+    }
+
+})
+/**
+ * Get all msg queue for navbar component
+ */
+router.get('/msgQueue', async(req, res, next)=>{
+    let uid = req.user._id;
+    let found = await User.findOne({_id:uid});
+    let count = 0 ;
+    if(found){
+        let notifications = await NotificationQ.findOne({user_id:found._id.toString()});
+        let rooms = notifications.rooms;
+        rooms.forEach(room => {
+            count += room.number;
+        });
+        console.log("Count is ", count)
+        res.json({ok:1, number:count});
+        return;
+    }else {
+        res.json({ok:0, err:"User not found!"})
+    }
+})
+
+
 /**
  * TODO ROUTE TO SEND MSG
  */
@@ -603,59 +890,105 @@ router.post('/sendMsg', async(req, res, next)=>{
      * text: asdasdasdasd
      */
     
-    
+    console.log("! MSG UID : ", req.user._id)
     let io = req.app.get('socketio')
     let body = await req.body;
     let uid = await req.user._id;
     let found = await User.findOne({_id:uid})
     let chat = await ChatRooms.findOne({_id:body.ruid.toString()})
     if(found && chat ){
-        console.log("SEND")
         if(found.chatRooms.includes(chat._id.toString())){
         await ChatRooms.updateOne({_id:body.ruid.toString()}, {$push:{messages:[{text:body.text, date: Date.now(), from:found._id}]}})
-        io.emit(body.ruid.toString(), 'update')
+       
+       if(uid.toString() === chat.firstUsr.toString()){
+        io.to(chat.secondUsr.toString()).emit('push_notification', body.ruid.toString())
+        /**
+         * toSecond user
+         * find the rooms element of user notificationQ
+         * iterate through rooms with room:
+         * check if room_id exists;
+         * if exists: increment;
+         * if not : push; roomId, notifications : 1
+         * 
+         */
+        await NotificationQ.findOneAndUpdate({user_id:chat.secondUsr, "rooms.roomId":chat._id.toString()}, {$inc:{"rooms.$.number":1}})
+    } //send to second user
+        else {
+            //To first User
+            io.to(chat.firstUsr.toString()).emit('push_notification',body.ruid.toString() )
+           let ok =  await NotificationQ.findOneAndUpdate({user_id:chat.firstUsr, "rooms.roomId":chat._id.toString()}, {$inc:{"rooms.$.number":1}})
+        }
         res.json({ok:1, msg:'sent'})
         }
     }
 })
 
-router.get('/notifications', async(req, res, next)=>{
-            let io = req.app.get('socketio')
-            io.on('notifications', ()=>{
-                console.log("not")
-            })
-})
+
+
 /**
- * Post comment
- * @param {*} u1 
- * @param {*} u2 
+ * Notification zone
  */
-router.post('/comment', async(req, res, next)=>{
-   console.log("Comment ", req.body)
+
+/**
+ * Get notifications from notification queue
+ */
+router.get('/notifications', async(req, res, next)=>{
     let uid = req.user._id;
-    let found = await User.findOne({_id:uid})
-    let pid = req.body.postID;
-    let comm= req.body.body.trim();
-    let postFound = await Posts.findOne({_id:pid})
-    if (found && postFound){
-        let obj = {}
-         obj.postId=postFound._id.toString();
-         obj.postedBy = found._id.toString();
-        obj.avatarUrl= found.avatarUrl;
-        obj.body= comm;
-        obj.postDate= Date.now();
-         await Posts.update({_id:pid}, {$push:{comments:[obj]}})
-         res.json({ok:1, msg:'posted'})
-         return
+    console.log("NOTIF")
+    console.log("uid is ", uid)
+    let found = await User.findOne({_id:uid});
+    if(found){
+        let notificationsUser =await NotificationQ.findOne({user_id:uid.toString()})
+       
+        let notifications = []
+        notificationsUser.comments.forEach(element => {
+            if(element.number>0){
+                notifications.push(element)
+            }
+        });
+        let commentsArray = notifications;
+        console.log('commentsArray ', commentsArray)
+        let arr= await commentsArray.sort((a, b)=>{return b.latestComment-a.latestComment})
+        
+        console.log('HOKEy ', arr)
+        res.json({ok:1, notificationsComments:notificationsUser.comments.slice(1), notifications:notificationsUser})
+        return
 
     }else {
-        res.json({ok:0, err:'User or Post not found'})
-        return
+        res.json({ok:0, err:'User not found'})
+        return;
     }
 })
 
+/**
+ * Get comment notifications
+ */
 
-
+/**
+ * Cleares comments queue
+ * updating the number to 0
+ * @param {*} u1 
+ * @param {*} u2 
+ */
+router.post('/clearCommentQueue?', async(req, res, next)=>{
+    let uid = req.user._id;
+    let pid = req.query.id;
+    let found = await User.findOne({_id:uid});
+    if(found){
+        //check if notifications.comments exists for this post
+        //update the number to 0
+        await NotificationQ.findOneAndUpdate({
+            user_id: found._id.toString(),
+            "comments.postId":pid.toString(),
+        }, {
+            "comments.$.number":0
+        })
+        res.json({ok:1, msg:'Comments queue cleared!'})
+        return;
+    }else {
+        res.json({ok:0, err:"User not found"})
+    }
+})
 
 /**
  * todo function to check if 2 users have a common chatroom
@@ -672,3 +1005,5 @@ async function checkChat(u1, u2){
 
 
 module.exports=router;
+
+

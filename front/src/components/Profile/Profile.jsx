@@ -40,7 +40,11 @@ import {
 import {CountryDropdown, RegionDropdown, CountryRegionData} from 'react-country-region-selector';
 import Geocode from "react-geocode";
 import api from '../../constants/api';
-import PostItem from './PostItem'
+import PostItem from './PostItem';
+
+
+import settingsImg from '../../assets/settings.svg';
+
 import './Profile.css'
 
 
@@ -232,7 +236,7 @@ class Profile extends React.Component {
             return null;
         }
 
-
+      
         return (
 
             <div className="profile">
@@ -297,7 +301,12 @@ class Profile extends React.Component {
                                     {
                                     this.state.username === null ? "Unknown" : "@" + this.state.username
                                 }</p>
+                                <img src={settingsImg} className="change-cursor" onClick={()=>{
+                                    //open user settings panel
+                                   window.location.assign('/settings')
+                                }}></img>
                             </div>
+                            
                             <div>
                                 <Tabs id="controlled-tab-example "
 

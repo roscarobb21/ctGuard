@@ -4,7 +4,6 @@ const bcrypt = require('bcrypt');
 const { ObjectId } = require('mongodb');
 
 const msg=new mongoose.Schema({
-
 from:{type:ObjectId},
 to:{type:ObjectId},
 text:{type:String},

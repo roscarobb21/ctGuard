@@ -13,7 +13,8 @@ import {
     Modal,
     ModalHeader,
     ModalBody,
-    ModalFooter
+    ModalFooter,
+    Spinner,
 } from 'reactstrap';
 import {
     AvForm,
@@ -31,6 +32,13 @@ import eye from '../../assets/eye.png';
 
 import api from '../../constants/api'
 import FacebookLogin from 'react-facebook-login';
+
+/**
+ * TODO:
+ * facebook login throw err if server unavailable
+ * Error report button
+ * 
+ */
 const LogInWithFacebook = ()=>{
 return (
 <div style={{position:'fixed', top:'0', right:'0%', zIndex:'10000'}}>
@@ -86,10 +94,13 @@ class Login extends React.Component{
     constructor(props){
         super(props);
         this.state={
-
+            fetchModalVar:false,
+            errText:null,
+            replaceSubmit:false,
         }
     }
     handleLoginSubmit=()=>{
+        this.setState({replaceSubmit:true})
         let route='/login'
 let success=1;
 if(document.getElementById("email").value==="")
@@ -119,17 +130,15 @@ if(document.getElementById("email").value==="")
     
         let Urlresponse =  fetch(url, options).then(response => response.json())
         .then(response => {
-        
             if(response){
-        localStorage.setItem("token", response.token)
-       
-        this.setState({errNumber:null, closeModal:true, finish:true})
-
-        window.location.replace('/profile')
-
-        return
+                    localStorage.setItem("token", response.token)
+                    window.location.replace('/profile')
             }
-        })
+           
+        }).catch(err=>{
+          console.error('[Login] Fetch error : ', err.toString())
+          this.setState({fetchModalVar:true, errText:err.toString()})
+         })
     }
     handleModal=()=> {
         this.setState({
@@ -139,7 +148,12 @@ if(document.getElementById("email").value==="")
         window.location.replace('/profile')
         }
     }
-
+    fetchModal=()=>{
+        this.setState({fetchModalVar:!this.state.fetchModalVar})
+    }
+    okErrButton=()=>{
+        window.location.reload();
+    }
 
     render(){
         let email_header="Email validation"
@@ -171,10 +185,33 @@ if(document.getElementById("email").value==="")
                     <ModalFooter>
                         <Button color="primary"
                             onClick={
-                                this.handleModal
+                                this.fetchModal
                         }>Ok, got it!</Button>
                     </ModalFooter>
                 </Modal>
+                <Modal isOpen={
+                       this.state.fetchModalVar
+                    }
+                    toggle={
+                        this.state.fetchModal
+                }>
+                    <ModalHeader toggle={
+                        this.fetchModal
+                    }> An error ocurred :( </ModalHeader>
+                    <ModalBody>
+                  {this.state.errText===null?"Unknown server error":this.state.errText+'. Try again later...'}
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button color="primary">
+                            Report error
+                        </Button>
+                        <Button color="primary"
+                           onClick={
+                            this.okErrButton
+                    } >Ok, got it!</Button>
+                    </ModalFooter>
+                </Modal>
+
                <a href="/"> <p>← back to home</p></a>
            <Row>
                 <Col></Col>
@@ -233,8 +270,8 @@ if(document.getElementById("email").value==="")
                                 <a href="/forgot">Forgot your password?
                                 </a>
                             </AvGroup>
-                            <Button outline color="primary"
-                              onClick={this.handleLoginSubmit} >Submit</Button>
+                            {this.state.replaceSubmit?<div><Spinner color="dark" type="grow"/></div>:<Button outline color="primary"
+                              onClick={this.handleLoginSubmit} >Submit</Button>}
                             </AvForm>
                             </div>
                             </div>

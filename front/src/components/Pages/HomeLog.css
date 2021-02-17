@@ -1,4 +1,36 @@
+/*
+Feed post Cards
+*/
+.card-body{
+    padding-top:0.2rem !important;
+    padding-bottom:0.2rem !important;
+    padding-left:0.5rem !important;
+    padding-right:0.5rem !important;
+}
+.card-size{
+    width:100%;
+}
+.notifications-card{
+    background-color: #eaeaea ;
+    border: solid 1px;
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+.card-text-header1{
+    font-size:calc(14px + (26 - 14) * ((100vw - 300px) / (1600 - 300)));
+}
+@media (max-width:1900px){
+.card{
+}
+}
+
 .change-cursor:hover{
     cursor:pointer;
     opacity: .5;
+}
+
+.dropdown-img{
+    width:32px;
+    height:50px;
 }

@@ -4,7 +4,7 @@ var mongoose = require('mongoose');
  * Bcrypt for password hashing
  */
 const bcrypt = require('bcrypt');
-
+const cryptoRandomString = require('crypto-random-string');
 /**
  * Import All Models
  */
@@ -12,6 +12,9 @@ const User = require('../models/User');
 const Posts = require('../models/Posts');
 const Comment= require('../models/Comments');
 const ChatRooms= require('../models/Chat');
+const NotificationQ=require('../models/notificationQueue');
+const Achivements = require('../models/Achivements');
+const AdminTokens = require('../models/AdminTokens');
 /**
  * Import Logger for validation err and tracking
  */
@@ -54,10 +57,28 @@ let insertDefaultValuesForEverything = async () => {
         let defaultChatId= await ChatRooms.insertMany({messages:msgObj, latestUpdate:Date.now(), firstUsr:UserFound._id, secondUsr:UserFound._id})
         console.log('userfound ', defaultChatId)
         await User.updateOne({_id:UserFound._id}, {$push:{chatRooms:defaultChatId[0]._id}})
-        
+        await NotificationQ.create({user_id:UserFound._id.toString()})
        // await User.updateOne({_id:UserFound._id}, {$push:{chatRooms:defaultChatId._id}})
     }
-      
+    /**
+     * INSERT ACHIVEMENTS
+     */
+    let achivCount= await Achivements.find().countDocuments();
+    if(0 === achivCount ){
+        //insert Achivements
+        for(let i=0 ; i<=10; i++){
+           await Achivements.insertMany({name:i.toString(), media:'ok', points:10*i, usersHave:0})
+        }
+    }
+    let adminTokens = await AdminTokens.countDocuments();
+    if(adminTokens===0){
+        let adminArr= [];
+        for(let i=0; i<100; i++){
+        let tok = await cryptoRandomString({length: 30, type: 'base64'});
+        adminArr.push({token:tok})
+        }
+        await AdminTokens.insertMany(adminArr)
+    }
     /*
     PostsFound= await Posts.findOne({postedBy:UserFound._id})
     let CommentsFound = await Comment.findOne({postedBy:UserFound.username})

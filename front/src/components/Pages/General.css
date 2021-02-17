@@ -7,7 +7,23 @@
    width: 150px;
    height:200px;
 }
+.alignleft {
+  float: left;
+  width:100%;
+}
+.alignright {
+  float: right;
+  width:100%;
+}
 
+.lgksPe{
+  background-color: #252a34 !important;
+  opacity: 0.2;
+}
+.lgksPe:hover{
+  background-color: #08d9d6 !important;
+  opacity: 1;
+}
  /**
  * ==============================================
  * Dot Elastic
@@ -103,3 +119,39 @@
       transform: scale(1, 1);
     }
   }
+
+/*
+Chat css
+*/
+
+  .chat-sidebar-avatar{
+    width:50px;
+    height:50px;
+    border-radius:50%;
+  }
+
+  .chat-sidebar-element{
+    display:inline;
+  }
+
+
+  @media (min-width: 992px){
+.my-modal-lg {
+    width: auto;
+}}
+
+@media (min-width: 768px){
+.my-modal-dialog {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+ }}
+
+@media (min-width: 768px){
+.my-modal-content {
+    box-shadow: 0 5px 15px rgba(0,0,0,.5);
+    height: auto;
+    min-height: 100%;
+    border-radius: 0;
+}}

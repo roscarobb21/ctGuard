@@ -13,7 +13,8 @@ import {
     Modal,
     ModalHeader,
     ModalBody,
-    ModalFooter
+    ModalFooter,
+    Spinner,
 } from 'reactstrap';
 import {
     AvForm,
@@ -27,11 +28,7 @@ import {
 
 import eye from '../../assets/eye.png'
 import './RegisterAndLogin.css'
-
-import api from '../../constants/api'
-
-
-
+ 
 
 
   /**
@@ -46,6 +43,9 @@ class Register extends Component{
             closeModal:false,
             allValid:true,
             errNumber:null,
+            replaceSubmit:false,
+            fetchModalVar:false,
+            errText:null,
         }
     }
     handleModal=()=> {
@@ -57,6 +57,7 @@ class Register extends Component{
         }
     }
     SubmitRegisterRequest=()=>{
+        this.setState({replaceSubmit:true})
         let success=1;
 if(document.getElementById("email").value==="")
         {
@@ -94,7 +95,7 @@ if(document.getElementById("email").value==="")
             }),
           };
 
-          let Urlresponse =  fetch(url, options).then(response => response.json())
+          let Urlresponse =  fetch(url, options).then(response => response.json()).catch(err=>{console.log("my custom err : ", err);this.setState({fetchModalVar:true, errText:err.toString()})})
           .then(response => {
           
               if(response){
@@ -116,6 +117,12 @@ if(document.getElementById("email").value==="")
       
 
 
+    }
+    fetchModal=()=>{
+        this.setState({fetchModalVar:!this.state.fetchModalVar})
+    }
+    okErrButton=()=>{
+        window.location.reload();
     }
     render(){
         let error=this.state.errNumber;
@@ -161,7 +168,28 @@ if(document.getElementById("email").value==="")
                         }>Ok, got it!</Button>
                     </ModalFooter>
                 </Modal>
-              
+                <Modal isOpen={
+                       this.state.fetchModalVar
+                    }
+                    toggle={
+                        this.state.fetchModal
+                }>
+                    <ModalHeader toggle={
+                        this.fetchModal
+                    }> An error ocurred :( </ModalHeader>
+                    <ModalBody>
+                  {this.state.errText===null?"Unknown server error":this.state.errText+'. Try again later...'}
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button color="primary">
+                            Report error
+                        </Button>
+                        <Button color="primary"
+                           onClick={
+                            this.okErrButton
+                    } >Ok, got it!</Button>
+                    </ModalFooter>
+                </Modal>
             <Row>
             <Col></Col>
             <Col xs="12" sm="6" md="4">
@@ -256,10 +284,10 @@ if(document.getElementById("email").value==="")
                                     </InputGroupAddon>
                                 </InputGroup>
                             </AvGroup>
-
-                            <Button outline color="primary"
+                                {this.state.replaceSubmit?<div><Spinner type="grow" color="dark" /></div>:<Button outline color="primary"
                             onClick={this.SubmitRegisterRequest}
-                               >Register</Button>
+                               >Register</Button>}
+                            
                         </AvForm>
                     </div>
                 </div>

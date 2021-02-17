@@ -13,29 +13,51 @@ import Carousel from 'react-elastic-carousel';
 import ReactPlayer from 'react-player';
 import api from '../../constants/api';
 import {Link} from 'react-router-dom';
-
+import { ListGroup, ListGroupItem, Label , Button, UncontrolledCollapse} from 'reactstrap';
 import { Spinner } from 'reactstrap';
+
 /**
  * upvote svg
  */
 import upNone from '../../assets/upNone.svg';
 import upDone from '../../assets/upDone.svg';
+import pop from '../../assets/pop.mp3';
+import unPop from '../../assets/unPop.mp3';
 /**
  * follow svg
  */
 import starNone from '../../assets/starNone.svg';
 import starDone from '../../assets/starDone.svg';
 
+/**
+ * Collapse expand svg
+ */
+
+ import collapseImg from '../../assets/collapse.svg';
+ import expandImg from '../../assets/expand.svg';
+
+
+
+import {Badge} from 'reactstrap';
+
+
+
 import 'react-multi-carousel/lib/styles.css';
 import './HomeLog.css'
 
+const io = require("socket.io-client");
  
-
+/**
+ * TODO:
+ * Notification table for comments or resolved issues
+ * 
+ */
 
 class HomeLogged extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
+            uid:null,
             recentlyPosts:null,
             following:null,
             usrUpVoted:null,
@@ -44,6 +66,10 @@ class HomeLogged extends React.Component {
             feedPosts:null,
             dropdownOpen:false,
             dropdownViewOpen:false,
+            showSpinner:false,
+            notificationsFeed:null,
+            toggleNotificationsCollapse:true,
+            update:false,
         }
         this.breakPoints = [
             { width: 1, itemsToShow: 1 },
@@ -54,6 +80,7 @@ class HomeLogged extends React.Component {
             { width: 1750, itemsToShow: 6 },
           ]
     }
+    socket = io(api)
     toggleDrop=()=>{
         this.setState({dropdownOpen:!this.state.dropdownOpen})
     }
@@ -128,11 +155,23 @@ class HomeLogged extends React.Component {
         const windowBottom = Math.round(windowHeight + window.pageYOffset);
 
         if (windowBottom >= docHeight) {
+            this.setState({showSpinner:true})
                 this.fetchFeed();
         }
     }
 async componentDidMount(){
     window.addEventListener('scroll', this.handleScroll);
+    this.socket.on('comment', (pid)=>{
+        //increment number on pid from notificationsFeed on fetch
+        let newNot =  this.state.notificationsFeed;
+        newNot.forEach(element => {
+            if(element.postId===pid){
+                ++element.number;
+            }
+        });
+        this.setState({notificationsFeed:newNot})
+     })
+
     let recentlyUrl = api + '/api/recently';
     let followUrl = api + '/api/following';
     let likedUrl= api+'/api/up';
@@ -166,7 +205,6 @@ async componentDidMount(){
     let usrFollowRaw = await fetch(followArrayUrl, postOptions);
     let usrFollowResponse = await usrFollowRaw.json();
 
-
     this.setState({recentlyPosts:response.posts, following:followResponse.posts, usrUpVoted:likedResponse.upVoted, usrFollow:usrFollowResponse.following})
 
 }
@@ -186,9 +224,8 @@ async componentDidMount(){
     let tempPosts = []
     tempPosts = tempPosts.concat(this.state.feedPosts)
     tempPosts = tempPosts.concat(response.posts)
-    this.setState({feedPosts:tempPosts})
+    this.setState({feedPosts:tempPosts, showSpinner:false})
 }
-
 
 
 
@@ -217,6 +254,7 @@ async componentDidMount(){
     }
     let responseRaw= await fetch(url, options);
     let response = await responseRaw.json();
+    console.log('user ', response)
     if(response.user.feed){
         let Feedurl = api+ '/api/feed';
     let Feedoptions = {
@@ -235,7 +273,8 @@ async componentDidMount(){
 
     let usrFollowRaw = await fetch(followArrayUrl, postOptions);
     let usrFollowResponse = await usrFollowRaw.json();
-    this.setState({feed:response.user.feed, feedPosts:Feedresponse.posts, usrUpVoted:likedResponse.upVoted, usrFollow:usrFollowResponse.following})
+    this.socket.emit('join_push_notifications', response.user.id.toString())
+    this.setState({uid:response.user.id.toString(),feed:response.user.feed, feedPosts:Feedresponse.posts, usrUpVoted:likedResponse.upVoted, usrFollow:usrFollowResponse.following})
     }else {
 
 
@@ -249,12 +288,14 @@ async componentDidMount(){
  * Generates cards for recently upvoted posts
  */
     generateRecentlyItems = (posts) => { // fetch my latest posts
-        if (this.state.recentlyPosts === null || this.state.recentlyPosts.length === 0) {
+        if (this.state.recentlyPosts === null ) {
             return (
                 <div>
-                    <p>You don't have any posts yet</p>
+                   <Spinner/>
                 </div>
             )
+        }else if(this.state.recentlyPosts.length === 0){
+            return(<div><p>You don't have any recently up voted posts</p></div>)
         }
         return this.state.recentlyPosts.map((post) => {
             //let liked= this.state.upVoted.includes(post._id.toString())?true:false;
@@ -267,10 +308,12 @@ async componentDidMount(){
                         <Row>
                             <Col md="2"></Col>
                             <Col md="8">
-                               <Card>
+                               <Card className="change-cursor" onClick={()=>{
+                                    window.location.assign('/post/'+post._id.toString())
+                               }}>
                                    <CardBody>
                                     <CardTitle>
-                                        {post.header.lenth>20?post.header.substring(0, 20)+"...":post.header}
+                                    {post.header.length>20?post.header.substring(0, 20)+"...":post.header}
                                     </CardTitle>
                                    </CardBody>
                                </Card>
@@ -278,7 +321,6 @@ async componentDidMount(){
                             <Col md="2"></Col>
                         </Row>
                     </div>
-
                 </div>
             );
         })
@@ -287,36 +329,20 @@ async componentDidMount(){
  * Following cards
  */
     generateFollowingItems=()=>{
-        if (this.state.following === null || this.state.following.length === 0) {
+        if (this.state.following === null ) {
             return (
                 <div>
-                    <p>You don't have any posts yet</p>
+                    <Spinner/>
                 </div>
             )
+        }else if (this.state.following.length === 0){
+            return(<div>
+                <p>You don't follow any posts yet</p>
+            </div>)
         }
         return this.state.following.map((post)=>{
-            console.log('media is ', post.media)
-            let mediaMap= (media)=>{
-                return media.map((item)=>{
-                    let ext = item.split('.')
-                    if(ext[1] === "mp4"){
-                        return(
-                            <div style={{zIndex:'1000000', padding:'40px', width:'500px', height:'300px'}}>
-                            <ReactPlayer
-                           className='react-player'
-                           url={item}
-                           width='100%'
-                           height='100%'
-                           controls={true}
-                         />
-                         </div>
-                        )
-                    }
-                    return(
-                    <div><img src={item}></img></div>
-                    )
-                })
-            }
+
+      
                 /**
                  * TapeView
                  */
@@ -326,20 +352,7 @@ async componentDidMount(){
                 <CardTitle>{post.header.length>20?post.header.substring(0, 20)+"...":post.header}</CardTitle>
                 <CardSubtitle>@{post.postedBy}</CardSubtitle>
                 <CardBody>
-                    {()=>{
-                        if(post.media.length===0){
-                            return(<div >This post doesn't have media :(</div>)
-                        }else {
-                            return(
-                                <Carousel itemsToShow={this.reponsive} ssr={true} swipeable={false} 
-                                draggable={false} 
-                                showDots={true}>
-                               {mediaMap(post.media)}
-                                              </Carousel>
-                            )
-                        }
-                    }}
-               
+                   {this.showCarousel(post.media)}
                 </CardBody>
                 <CardBody>{post.body.length>30?post.body.substring(0, 30)+"...":post.body}</CardBody>
                 </CardBody>
@@ -358,10 +371,17 @@ async componentDidMount(){
                               token: localStorage.getItem("token").toString()
                           }
                       };
-                      let responseRaw = await fetch(url, options);
-                      let response = await responseRaw.json();
-                      console.log('ON LIKE CLICK ', response)
-                            this.setState({usrUpVoted:response.upVoted})
+                       fetch(url, options);
+                       if(this.state.usrUpVoted.includes(post._id.toString())){
+                        let newUpvotes = this.state.usrUpVoted;
+                        newUpvotes.splice(newUpvotes.indexOf(post._id.toString), 1);
+                      this.setState({usrUpVoted:newUpvotes})
+                    }else {
+                        let newUpvotes = this.state.usrUpVoted;
+                        newUpvotes.push(post._id.toString())
+                        this.setState({usrUpVoted:newUpvotes})
+                    }  
+                      
                     }}></img>
                     </Col><Col>
                      <img className="change-cursor" src={this.state.usrFollow.includes(post._id.toString())?starDone:starNone} onClick={async ()=>{
@@ -375,10 +395,19 @@ async componentDidMount(){
                               token: localStorage.getItem("token").toString()
                           }
                       };
-                      let responseRaw = await fetch(url, options);
-                      let response = await responseRaw.json();
-                      console.log('ON Follow CLICK ', response)
-                            this.setState({usrFollow:response.followNew})
+                     fetch(url, options);
+                     if(this.state.usrFollow.includes(post._id.toString())){
+                        //remove from list 
+                        let newFollow= this.state.usrFollow;
+                        newFollow.splice(newFollow.indexOf(post._id.toString()), 1)
+                        this.setState({usrFollow:newFollow})
+                    }else {
+                        //add to list 
+                        let newFollow= this.state.usrFollow;
+                        newFollow.push(post._id.toString())
+                        this.setState({usrFollow:newFollow})
+                    } 
+                     
                     }}></img>
                     </Col>
                     </Row>
@@ -392,68 +421,75 @@ async componentDidMount(){
 /**
  * Generate feed cards 
  */
+/**
+ * Check if post has media
+ * if has: show carousel, map media
+ * if not: show message "this post has no media attached"
+ * 
+ */
+
+showCarousel=(media)=>{
+    if(media.length>0){
+        return(<div className="card-media-carousel"><Carousel itemsToShow={1}
+        showArrows={media.length===1?false:true}
+        disableArrowsOnEnd={false}
+        enableMouseSwipe={false}
+        
+        >
+               {
+              media.map((element)=>{
+                  if(element.split('.')[1]==="mp4"){
+                      return(
+                          <div style={{width:'100%', height:'100%',padding:'10px'}}>
+                               <ReactPlayer
+                           className='react-player'
+                           url={element}
+                           width='100%'
+                           height='100%'
+                           controls={true}
+                         />
+                          </div>
+                      )
+                  }
+                  return(<div>
+                      <img src={element}></img>
+                  </div>)
+              })
+          }
+        </Carousel></div>)
+    }else {
+        return(<div>This post has no media</div>)
+    }
+}
+
 generateFeedCards=  (props)=>{
     if (this.state.feedPosts === null || this.state.feedPosts.length === 0) {
         return (
             <div>
-                <p>You don't have any posts yet</p>
+                <p>Server error</p>
             </div>
         )
     }
+  
     return this.state.feedPosts.map((post)=>{
-        console.log('media is ', post.media)
-        let mediaMap= (media)=>{
-            return media.map((item)=>{
-                let ext = item.split('.')
-                if(ext[1] === "mp4"){
-                    return(
-                        <div style={{zIndex:'1000000', padding:'40px', width:'500px', height:'300px'}}>
-                        <ReactPlayer
-                       className='react-player'
-                       url={item}
-                       width='100%'
-                       height='100%'
-                       controls={true}
-                       
-                     />
-                     </div>
-                    )
-                }
-                return(
-                <div><img src={item}></img></div>
-                )
-            })
-        }
-        return(<div>
-        <Card style={{marginTop:'2vh'}}>
+        return(<div className="card-size">
+        <Card  style={{marginTop:'2vh', backgroundColor:'#eeeeee'}}>
             <CardBody>
             <CardTitle onClick={()=>{
                 window.location.assign('/post/'+post._id.toString())
-               }}><p className="change-cursor">{post.header}</p></CardTitle>
+               }}><p className="change-cursor card-text-header1 ">{post.header.length>30?post.header.substring(0, 30)+"...":post.header}</p></CardTitle>
             <CardSubtitle><Link to={'/user/'+post.postedBy}>@{post.postedBy}</Link></CardSubtitle>
-            <CardBody>
-
-                {post.media.length===0?"This post has no media attached":()=>{
-                     return(
-                        <Carousel  ssr={true} swipeable={false} 
-                        draggable={false} 
-                        showDots={true}>
-                        {mediaMap(post.media)}
-                        
-                        </Carousel>
-                    )
-                }}
-              
-              
-           
+            <CardBody >
+              {this.showCarousel(post.media)}
             </CardBody>
-            <CardBody>{post.body.length>50?post.body.substring(0,50)+"...":post.body}</CardBody>
+            <CardBody className="float-left text-justify">{post.body.length>150?post.body.substring(0,150)+"...":post.body}</CardBody>
             </CardBody>
             
-            <CardFooter>
+            <CardFooter style={{backgroundColor:'#eeeeee'}}>
                 <Row>
                     <Col>
-                <img className="change-cursor" src={this.state.usrUpVoted.includes(post._id.toString())?upDone:upNone} onClick={async ()=>{
+                <img className="change-cursor" src={post.userUpVoted?upDone:upNone} onClick={async ()=>{
+                    post.userUpVoted= !post.userUpVoted
                     let url= api + '/api/up?id='+post._id.toString()
                     let options = {
                       method: "POST",
@@ -464,11 +500,23 @@ generateFeedCards=  (props)=>{
                           token: localStorage.getItem("token").toString()
                       }
                   };
-                  let responseRaw = await fetch(url, options);
-                  let response = await responseRaw.json();
-                  console.log('ON LIKE CLICK ', response)
-                        this.setState({usrUpVoted:response.upVoted})
-                }}></img>
+                   fetch(url, options)
+                 
+                    if(!post.userUpVoted){
+                        //exclude
+                        let audio = new Audio(unPop)
+                        audio.play()
+                        post.upVotes--;
+                    }else {
+                        //include
+                        let audio = new Audio(pop)
+                        audio.play()
+                        post.upVotes++;
+                    }
+                     this.setState({update:!this.state.update})
+                }}></img> 
+                &nbsp;
+                <span>{post.upVotes}</span>
                 </Col><Col>
                  <img className="change-cursor" src={this.state.usrFollow.includes(post._id.toString())?starDone:starNone} onClick={async ()=>{
                     let url= api + '/api/follow?id='+post._id.toString()
@@ -481,11 +529,33 @@ generateFeedCards=  (props)=>{
                           token: localStorage.getItem("token").toString()
                       }
                   };
-                  let responseRaw = await fetch(url, options);
-                  let response = await responseRaw.json();
-                  console.log('ON Follow CLICK ', response)
-                        this.setState({usrFollow:response.followNew})
+                 fetch(url, options);
+                if(this.state.usrFollow.includes(post._id.toString())){
+                    //remove from list 
+                    let newPosts = this.state.feedPosts;
+                    newPosts.forEach(element => {
+                      if(element._id.toString()===post._id.toString()){
+                          element.followers--;
+                      }
+                  });
+                    let newFollow= this.state.usrFollow;
+                    newFollow.splice(newFollow.indexOf(post._id.toString()), 1)
+                    this.setState({usrFollow:newFollow, feedPosts:newPosts})
+                }else {
+                    //add to list 
+                    let newPosts = this.state.feedPosts;
+                    newPosts.forEach(element => {
+                      if(element._id.toString()===post._id.toString()){
+                          element.followers++;
+                      }
+                  });
+                    let newFollow= this.state.usrFollow;
+                    newFollow.push(post._id.toString())
+                    this.setState({usrFollow:newFollow, feedPosts:newPosts})
+                } 
                 }}></img>
+                &nbsp;
+                <span>{post.followers}</span>
                 </Col>
                 </Row>
             </CardFooter>
@@ -494,12 +564,61 @@ generateFeedCards=  (props)=>{
     })
 }
 
-    render() {
+clearNotificationsFeedCard=(id)=>{
+    let url= api + '/api/clearCommentQueue?id='+id;
+    let options = {
+      method: "POST",
+      headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          token: localStorage.getItem("token").toString()
+      }
+  };
+  fetch(url, options);
+}
 
+
+generateNotificationsFeed=()=>{
+    let feed;
+    if(this.state.notificationsFeed===null){
+        feed = this.fetchNotificationsFeed();
+    }else {
+        if(this.state.notificationsFeed!==null && this.state.notificationsFeed !== undefined){
+            return(this.state.notificationsFeed.map(element=>{
+               
+                return(<ListGroupItem style={{marginTop:'1vh', borderRadius:'5%'}} className="float-left" className="change-cursor" onClick={()=>{
+                    this.clearNotificationsFeedCard(element.postId)
+                    window.location.assign('/post/'+element.postId)
+                }}>New comments on: {element.postHeader.length>20?element.postHeader.substring(0, 20)+"...":element.postHeader}&nbsp;<Badge style={{color:"#00adb5", backgroundColor:"#ffffff"}}>{element.number}</Badge></ListGroupItem>)
+            }
+            ))
+        }
+    }
+
+}
+fetchNotificationsFeed=()=>{
+    let url= api + '/api/notifications';
+    let options = {
+      method: "GET",
+      headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          token: localStorage.getItem("token").toString()
+      }
+  };
+  fetch(url, options).then(response=>response.json()).then(response=>{
+      this.setState({notificationsFeed:response.notificationsComments})
+  })
+}
+toggleNotifications=()=>{
+    this.setState({toggleNotificationsCollapse:!this.state.toggleNotificationsCollapse})
+}
+    render() {
         if(this.state.recentlyPosts===[] && this.state.recentlyPosts === null){
             return null
         }
-        
         return (
             <div>
                 <Row>
@@ -508,8 +627,6 @@ generateFeedCards=  (props)=>{
 
                     </Col>
                 </Row>
-
-                
                 <Row >
                     <Col>
                     <div>
@@ -521,13 +638,10 @@ generateFeedCards=  (props)=>{
                         </div>
                     </Col>
                 </Row>
-
-
                 <Row style={{marginTop:'2vh'}}>
-                    <Col></Col>
-                    <Col md="12" lg="4">
+                <Col md={{size:0}} lg={{size:2, order:1}}> </Col>
+                    <Col  xs={{size:12, order:2}} sm={{size:12, order:2}} md={{size:12, order:2}} lg={{size:5, order:2}}>
                     <div>
-                        
                         <div style={{display:'flex'}}>
                     <Dropdown isOpen={this.state.dropdownOpen} toggle={this.toggleDrop} >
       <DropdownToggle caret>
@@ -542,29 +656,37 @@ generateFeedCards=  (props)=>{
         }}>Following</DropdownItem>
       </DropdownMenu>
     </Dropdown>
-
-    <Dropdown isOpen={this.state.dropdownViewOpen} toggle={this.toggleViewDrop} style={{marginLeft:'2vw'}}>
-      <DropdownToggle caret>
-          View
-        </DropdownToggle>
-      <DropdownMenu>
-        <DropdownItem onClick={()=>{
-            this.setState({feedListView:true})
-        } }>Tape like</DropdownItem>
-        <DropdownItem onClick={()=>{
-            this.setState({feedListView:false})
-        }}>Grid</DropdownItem>
-      </DropdownMenu>
-    </Dropdown>
     </div>
-        {(this.state.feedPosts && this.state.feed)?<this.generateFeedCards/>:this.generateFollowingItems(this.state.followingPosts)}
-        
-        
-     
+        {(this.state.feedPosts && this.state.feed)?this.generateFeedCards():this.generateFollowingItems(this.state.followingPosts)}
                         </div>
                         </Col>
 
-                        <Col></Col>
+                        <Col className="" xs={{size:12, order:1 ,}}  sm={{size:12, order:1}} md={{size:12, order:1}} lg={{size:3, order:3}}>
+                            <div style={{width:'100%'}}>
+                            <div>
+                        <Label className="text-header2 float-left">Notifications</Label>
+                       <img id="toggleImg" className="change-cursor dropdown-img float-right" src={this.state.toggleNotificationsCollapse?expandImg:collapseImg} onClick={this.toggleNotifications}></img>
+                        </div>
+                        <UncontrolledCollapse toggler="toggleImg" style={{width:'100%'}}>
+                        <div>
+                       
+                            <div className="" style={{width:'100%', height:'200px', overflowY:'scroll'}}>
+                        <div  style={{width:'100%'}}>
+                        <ListGroup>
+                            {this.generateNotificationsFeed()}
+                        </ListGroup>
+                        </div>
+                        </div>
+                        </div>
+
+                        </UncontrolledCollapse>
+                        </div>
+                         </Col>  
+                </Row>
+                <Row style={{height:'2vh'}}>
+                    <Col>
+                    {this.state.showSpinner?<Spinner style={{marginTop:'2vh', marginBotton:'2vh'}}/>:null}
+                    </Col>
                 </Row>
             </div>
         )

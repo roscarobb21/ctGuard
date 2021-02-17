@@ -100,6 +100,7 @@ const PostItem = (props) => {
             <Carousel itemsToShow={1}>
           {
               props.props.media.map((element)=>{
+                console.log('media is ', props.props.media);
                   if(element.split('.')[1]==="mp4"){
                       return(
                           <div>

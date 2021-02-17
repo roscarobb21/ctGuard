@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
 import {
+    Badge,
     Collapse,
     Navbar,
     NavbarToggler,
@@ -54,6 +55,8 @@ class NavBar extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
+            uid:null,
+            isAdmin:false,
             isOpen: false,
             showSearch:true,
             setIsOpen: false,
@@ -62,6 +65,8 @@ class NavBar extends React.Component {
             avatarUrl: null,
             addPost: false,
             closeModal: false,
+            joinedPush:false,
+            pushMsg:0,
             pictures:[]
         }
 
@@ -74,7 +79,7 @@ class NavBar extends React.Component {
 
     }
     
-    socket = io('http://localhost:3001/')
+    socket = io(api)
 
 
     async componentWillMount() {
@@ -87,12 +92,42 @@ class NavBar extends React.Component {
             }
         });
     }
+    
+    MINUTE_MS = 10000;
+    componentDidMount(){
+         const interval = setInterval(() => {
+            if(this.state.activeChat!== null){
+                //clear queue every 15s
+                let url = api+'/api/msgQueue';
+                        let options = {
+                            method: "GET",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Cache-Control": "no-cache, no-store, must-revalidate",
+                                Pragma: "no-cache",
+                                token: localStorage.getItem("token").toString()
+                            }
+                        };
+                        console.log("Navbar msg updated")
+                        fetch(url, options).then(response=>response.json()).then(response=>{
+                            this.setState({pushMsg:response.number})
+                        })
+                    }else {
+                        console.log("Nothing to clear")
+                    }
+          }, this.MINUTE_MS );
+
+        this.socket.on('push_notification', (ruid)=>{
+           this.setState({pushMsg:this.state.pushMsg+1})
+        })
+       
+    }
     async fetchNotifications(){
         
     }
 
     async fetchAvatar() {
-        let url = "http://localhost:3001/api";
+        let url = api+"/api";
         let options = {
             method: "GET",
             headers: {
@@ -107,7 +142,7 @@ class NavBar extends React.Component {
         console.log('ava ', avatarinfo)
         if (fetchUserInfo) {
             let newUrl = await avatarinfo.user.avatarUrl;
-            this.setState({avatarUrl: newUrl});
+            this.setState({avatarUrl: newUrl, uid:avatarinfo.user.id.toString(), isAdmin:avatarinfo.user.isAdmin});
         }
     }
 
@@ -117,12 +152,9 @@ class NavBar extends React.Component {
     })
 
 
-    searchClient = algoliasearch('2540HBTYZ8', '12c31ee81965c58c863484b343307e5f');
+    
 
-    Hit = (props) => {
-        alert('hit')
-        console.log('hit props ', props)
-    }
+   
     handleModal = () => {
         this.setState({
             closeModal: !this.state.closeModal
@@ -200,7 +232,10 @@ class NavBar extends React.Component {
         }
 }
     render() {
-        console.log('on drop pictures: ', this.state.pictures)
+       if(this.state.uid !== null && !this.state.joinedPush){
+        this.socket.emit('join_push_notifications', this.state.uid)
+        this.setState({joinedPush:true})
+       }
         if (this.state.searchFocus) {
             return (
                 <div className="search-focus"></div>
@@ -308,9 +343,23 @@ class NavBar extends React.Component {
                                             className="navbar-avatar-img"></img>
                                     </DropdownToggle>
                                     <DropdownMenu right>
-                                        <DropdownItem>
-                                            <Link to="/profile">My Profile</Link>
+                                        <DropdownItem onClick={()=>{
+                                            window.location.assign('/profile')
+                                        }}>
+                                            My Profile
                                         </DropdownItem>
+                                        <DropdownItem onClick={()=>{
+                                            window.location.assign('/settings')
+                                        }}>
+                                           Profile Settings
+                                        </DropdownItem>
+                                        {this.state.isAdmin &&
+                                        <DropdownItem style={{color:'#ff2e63'}} onClick={()=>{
+                                            window.location.assign('/admin/dashboard')
+                                        }}>
+                                           Manage Posts
+                                        </DropdownItem>}
+                                        <DropdownItem divider/>
                                         <DropdownItem onClick={
                                             () => {
                                                 this.setState({closeModal: true})
@@ -323,7 +372,7 @@ class NavBar extends React.Component {
                                              window.location.assign('/chat/all')
                                             }
                                         }>
-                                            Messages
+                                            Messages <Badge color="primary">{this.state.pushMsg}</Badge>
                                         </DropdownItem>
                                         <DropdownItem divider/>
                                         <DropdownItem onClick={

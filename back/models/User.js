@@ -58,6 +58,23 @@ postsNumber:{
     default:0
 },
 chatRooms:[],
+anon:{
+    type:Boolean,
+    default:true,
+},
+achivements:[],
+postPoints:{
+    type:Number,
+    default: 0,
+},
+approvedPoints:{
+    type:Number,
+    default:0
+},
+subscribed:[],
+isAdmin:{
+    type:Boolean,
+}
 });
 
 

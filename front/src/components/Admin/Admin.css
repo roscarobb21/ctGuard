@@ -1,0 +1,15 @@
+.admin-dash-filters-section{
+    background-color: #eaeaea;
+}
+
+.admin-dash-table-section{
+    background-color: #eeeeee;
+}
+
+.table-hover{
+    cursor:pointer;
+}
+
+.textarea-admin{
+    height:300px !important;
+}
