@@ -7,56 +7,49 @@ import {Card,
     CardBody,
     CardSubtitle,
 CardFooter} from 'reactstrap';
-import { Dropdown, DropdownToggle, DropdownMenu, DropdownItem } from 'reactstrap';
+import { Dropdown, DropdownToggle, DropdownMenu, DropdownItem, ButtonDropdown, Spinner } from 'reactstrap';
 import Navbar from '../NavBar/Navbar';
 import Carousel from 'react-elastic-carousel';
 import ReactPlayer from 'react-player';
 import api from '../../constants/api';
-import {Link} from 'react-router-dom';
 import { ListGroup, ListGroupItem, Label , Button, UncontrolledCollapse} from 'reactstrap';
-import { Spinner } from 'reactstrap';
-
-/**
- * upvote svg
- */
-import upNone from '../../assets/upNone.svg';
-import upDone from '../../assets/upDone.svg';
-import pop from '../../assets/pop.mp3';
-import unPop from '../../assets/unPop.mp3';
-/**
- * follow svg
- */
-import starNone from '../../assets/starNone.svg';
-import starDone from '../../assets/starDone.svg';
-
-/**
- * Collapse expand svg
- */
-
- import collapseImg from '../../assets/collapse.svg';
- import expandImg from '../../assets/expand.svg';
+import Skeleton from 'react-loading-skeleton';
+import 'react-medium-image-zoom/dist/styles.css';
+import Collapse from "@kunukn/react-collapse";
 
 
+import { InView } from 'react-intersection-observer';
 
+import followSound from '../../assets/followSound.wav';
+import Notification from '../../assets/notification.wav';
+
+import ScrollToTop from "react-scroll-to-top";
 import {Badge} from 'reactstrap';
-
-
-
+import Sticky from 'react-sticky-el';
+import PostItem from '../PostItem/PostItem';
+import PostItemScheleton from '../PostItem/PostItemScheleton';
 import 'react-multi-carousel/lib/styles.css';
 import './HomeLog.css'
+import { List } from '@material-ui/core';
 
 const io = require("socket.io-client");
- 
 /**
  * TODO:
  * Notification table for comments or resolved issues
  * 
  */
 
+/**
+ * TODO GET NOTIFICATION WRAPPER FIXED ON SCREEN IF WIDTH > 991 && not in viewport
+ */
+
+ 
+
 class HomeLogged extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
+            scrollHeightCheck:0,
             uid:null,
             recentlyPosts:null,
             following:null,
@@ -70,6 +63,13 @@ class HomeLogged extends React.Component {
             notificationsFeed:null,
             toggleNotificationsCollapse:true,
             update:false,
+            notificationsIsOpen:false,
+            notificationsIsVisible:true,
+            isNotificationsFixed:false,
+            dropDownText:["Feed", "Following"],
+            dropDownTextIndex:0,
+            notificationsFeedElements:null,
+            updated:false,
         }
         this.breakPoints = [
             { width: 1, itemsToShow: 1 },
@@ -79,88 +79,171 @@ class HomeLogged extends React.Component {
             { width: 1450, itemsToShow: 5 },
             { width: 1750, itemsToShow: 6 },
           ]
+         
     }
-    socket = io(api)
-    toggleDrop=()=>{
-        this.setState({dropdownOpen:!this.state.dropdownOpen})
-    }
-    toggleViewDrop=()=>{
-        this.setState({dropdownViewOpen:!this.state.dropdownViewOpen})
-    }
-    responsive = {
-        superLargeDesktop: { // the naming can be any, depends on you.
-            breakpoint: {
-                max: 4000,
-                min: 3000
-            },
-            items: 5
-        },
-        desktop: {
-            breakpoint: {
-                max: 3000,
-                min: 1024
-            },
-            items: 3
-        },
-        tablet: {
-            breakpoint: {
-                max: 1024,
-                min: 464
-            },
-            items: 2
-        },
-        mobile: {
-            breakpoint: {
-                max: 464,
-                min: 0
-            },
-            items: 1
-        }
-    };
-    responsivePost = {
-        superLargeDesktop: { // the naming can be any, depends on you.
-            breakpoint: {
-                max: 4000,
-                min: 3000
-            },
-            items: 1
-        },
-        desktop: {
-            breakpoint: {
-                max: 3000,
-                min: 1024
-            },
-            items: 1
-        },
-        tablet: {
-            breakpoint: {
-                max: 1024,
-                min: 464
-            },
-            items: 1
-        },
-        mobile: {
-            breakpoint: {
-                max: 464,
-                min: 0
-            },
-            items: 1
-        }
-    };
-    handleScroll=()=>{
-        const windowHeight = "innerHeight" in window ? window.innerHeight : document.documentElement.offsetHeight;
-        const body = document.body;
-        const html = document.documentElement;
-        const docHeight = Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.scrollHeight, html.offsetHeight);
-        const windowBottom = Math.round(windowHeight + window.pageYOffset);
+    socket = io(api.backaddr)
+    NotificationsComponent = () => {
+        const onInit = ({ state, style, node }) => {
+          /*
+             node: HTMLElement = the DOM node of the component.
+          */
+        };
+        return (
+            
+            
+          <div >
+              <Row>
+                  <Col>
+              <span className="text-header2 notifications-button" title={this.state.notificationsIsOpen?"Click to collapse":"Click to expand"} onClick={()=>this.setState({notificationsIsOpen:!this.state.notificationsIsOpen})}>Notifications&nbsp;</span>
+              </Col>
+            </Row> 
+            <Collapse transition="400ms" onInit={onInit} isOpen={this.state.notificationsIsOpen}>
+                <br></br>
+                    <small className="float-left" style={{color:'#00adb5'}}>Post notifications: </small>
+                    <hr></hr>
+                <div className="notifications-list" >
+                    <ListGroup className="" style={{scrollbarWidth:'0px'}}>
+                            {this.generateNotificationsFeed()}
+                        </ListGroup>
+                        </div>
+                        <br></br>
+                        <small className="float-left" style={{color:'#00adb5'}}>Comments notifications:</small>
+                        <hr></hr>
+                        <div className="notifications-list" style={{minHeight:'200px', maxHeight:'300px'}}>
+                      
+                        <ListGroup className="" style={{scrollbarWidth:'0px'}}>
+                            {this.generateCommentNotificationFeed()}
+                        </ListGroup>
+                        </div>
+            </Collapse>
+          </div>
+        );
+      };
+      generateNotificationsFeed=()=>{
+            if(this.state.notificationsFeedElements === null){
+                return(<ListGroupItem>You don't have any notifications</ListGroupItem>)
+            }
+            if(this.state.notificationsFeedElements.length === 0){
+                return(<ListGroupItem>You don't have any notifications</ListGroupItem>)
+            }
+            return this.state.notificationsFeedElements.map((element, i)=>{
+                let mycls = "float-left "
+                mycls+= element.new?"":"text-black-always"
+                return(<ListGroupItem className="change-cursor" style={{marginTop:i==0?'0px':'20px', backgroundColor:element.new?"rgba(0,173,181, 0.3)":'white'}} onClick={()=>{
+                    let url= api.backaddr + '/api/clearAuthResponseNotification'
+                    let options = {
+                      method: "POST",
+                      headers: {
+                          "Content-Type": "application/json",
+                          "Cache-Control": "no-cache, no-store, must-revalidate",
+                          Pragma: "no-cache",
+                          token: localStorage.getItem("token").toString()
+                      } ,
+                       body: JSON.stringify({
+                        nid: element._id.toString(),
+                      }),
+                  };
+                  fetch(url, options)
+                  window.location.assign('/post/'+element.url);
+                }}><span className={mycls} style={{textAlign:'left'}}>{element.title.length>50?element.title.substring(0, 50)+"...":element.title}&nbsp;<Badge color={element.new?'primary':'secondary'}>{element.number}</Badge></span> </ListGroupItem>)
+            })
+          }
+          generateCommentNotificationFeed=()=>{
+              if(this.state.notificationsFeed === null){
+                  return(<Spinner/>)
+              }
+             
+              return(
+                <ListGroup>
+                    {this.commentNotificationElements()}
+                </ListGroup>
+              )
+          }
 
-        if (windowBottom >= docHeight) {
-            this.setState({showSpinner:true})
-                this.fetchFeed();
+          commentNotificationElements= ()=>{
+            if(this.state.notificationsFeed.length === 0){
+                return(<ListGroupItem>You don't have any comment notifications</ListGroupItem>)
+            }
+            return this.state.notificationsFeed.map(element=>{
+                return(<ListGroupItem className="change-cursor" 
+                style={{backgroundColor:element.number>0?"rgba(0,173,181, 0.3)":'white'}}
+                onClick={()=>{
+                    let url = api.backaddr + api.authUser + '/clearCommentQueue?id='+element.postId;
+                    let options = {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Cache-Control": "no-cache, no-store, must-revalidate",
+                            Pragma: "no-cache",
+                            token: localStorage.getItem("token").toString()
+                        }
+                    };
+                    fetch(url, options)
+                    window.location.assign('/post/'+element.postId)
+                }}
+                >
+                   <span className="float-left" style={{textAlign:'left'}}>New comments for: {element.postHeader.length>50?element.postHeader.substring(0, 50)+"...":element.postHeader} <Badge color={element.number===0?'secondary':'primary'}>{element.number}</Badge> </span></ListGroupItem>)
+            })
+
+          }
+
+
+
+
+          fetchNotificationsFeed=()=>{
+            let url= api.backaddr + '/api/notifications';
+            let options = {
+              method: "GET",
+              headers: {
+                  "Content-Type": "application/json",
+                  "Cache-Control": "no-cache, no-store, must-revalidate",
+                  Pragma: "no-cache",
+                  token: localStorage.getItem("token").toString()
+              }
+          };
+          fetch(url, options).then(response=>response.json()).then(response=>{
+              
+              this.setState({notificationsFeed:response.notificationsComments, notificationsFeedElements: response.notifications})
+          })
         }
+
+
+      clearNotificationsFeedCard=(id)=>{
+        let url= api.backaddr + '/api/clearCommentQueue?id='+id;
+        let options = {
+          method: "POST",
+          headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              Pragma: "no-cache",
+              token: localStorage.getItem("token").toString()
+          }
+      };
+      fetch(url, options);
     }
+    
+    
+   
+    
+    
+    toggleNotifications=()=>{
+        this.setState({toggleNotificationsCollapse:!this.state.toggleNotificationsCollapse})
+    }
+    
+  
+    //first fetch the recently liked posts
 async componentDidMount(){
     window.addEventListener('scroll', this.handleScroll);
+    window.addEventListener('resize', this.updateDimensions);
+    //  this.socket.emit('join_push_notifications', response.user.id.toString())
+    this.socket.on('following_post_notification', (info)=>{
+        console.log("🚀 ~ file: HomeLogged.jsx ~ line 185 ~ HomeLogged ~ this.socket.on ~ info", info)
+        let notifications = this.state.notificationsFeedElements;
+        let audio = new Audio(Notification);
+        audio.play();
+       this.fetchNotificationsFeed();
+    })
+
     this.socket.on('comment', (pid)=>{
         //increment number on pid from notificationsFeed on fetch
         let newNot =  this.state.notificationsFeed;
@@ -172,10 +255,7 @@ async componentDidMount(){
         this.setState({notificationsFeed:newNot})
      })
 
-    let recentlyUrl = api + '/api/recently';
-    let followUrl = api + '/api/following';
-    let likedUrl= api+'/api/up';
-    let followArrayUrl= api+'/api/follow';
+    let recentlyUrl = api.backaddr + '/api/recently';
     let options = {
         method: "GET",
         headers: {
@@ -185,31 +265,47 @@ async componentDidMount(){
             token: localStorage.getItem("token").toString()
         }
     };
-    let postOptions={
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            Pragma: "no-cache",
-            token: localStorage.getItem("token").toString()
-        }
-    }
     let responseRaw = await fetch(recentlyUrl, options);
     let response = await responseRaw.json();
-    let followResponseRaw = await fetch(followUrl, options)
-    let followResponse = await followResponseRaw.json();
-    
-    let likedResponseRaw = await fetch(likedUrl, postOptions);
-    let likedResponse = await likedResponseRaw.json();
-
-    let usrFollowRaw = await fetch(followArrayUrl, postOptions);
-    let usrFollowResponse = await usrFollowRaw.json();
-
-    this.setState({recentlyPosts:response.posts, following:followResponse.posts, usrUpVoted:likedResponse.upVoted, usrFollow:usrFollowResponse.following})
+    this.setState({recentlyPosts:response.posts })
 
 }
+    toggleDrop=()=>{
+        this.setState({dropdownOpen:!this.state.dropdownOpen})
+    }
+    toggleViewDrop=()=>{
+        this.setState({dropdownViewOpen:!this.state.dropdownViewOpen})
+    }
+ 
+    handleScroll=()=>{
+        /*
+        const windowHeight = "innerHeight" in window ? window.innerHeight : document.documentElement.offsetHeight;
+        const body = document.body;
+        const html = document.documentElement;
+        const docHeight = Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.scrollHeight, html.offsetHeight);
+        const windowBottom = Math.round(windowHeight + window.pageYOffset);
+        const myCheck = document.scrollingElement.scrollTop;
+        const why = (myCheck-300)/10;
+        if (windowBottom+120 >= docHeight) {
+            this.setState({showSpinner:true, scrollHeightCheck:why})
+                this.fetchFeed();
+        }
+        */
+    }
+    updateDimensions = () => {
+        console.log('width is q: ', window.innerWidth)
+        this.setState({ width: window.innerWidth});
+      };
+
+    componentWillUnmount(){
+        window.removeEventListener('resize', this.updateDimensions);
+    }
+
+
+
+
  fetchFeed= async()=>{
-    let url = api+ '/api/feed';
+    let url = api.backaddr+ '/api/feed';
     let options = {
         method: "GET",
         headers: {
@@ -221,18 +317,19 @@ async componentDidMount(){
     };
     let responseRaw = await fetch(url, options);
     let response = await responseRaw.json();
+    
     let tempPosts = []
     tempPosts = tempPosts.concat(this.state.feedPosts)
     tempPosts = tempPosts.concat(response.posts)
+
     this.setState({feedPosts:tempPosts, showSpinner:false})
+    setTimeout(()=>{
+        this.setState({updated:false})
+    }, 1500)
 }
 
-
-
-   async componentWillMount(){
-       let url= api+'/api'
-       let likedUrl= api+'/api/up';
-       let followArrayUrl= api+'/api/follow';
+fetchFollowingPosts = async ()=>{
+    let url = api.backaddr+ '/api/following';
     let options = {
         method: "GET",
         headers: {
@@ -241,22 +338,32 @@ async componentDidMount(){
             Pragma: "no-cache",
             token: localStorage.getItem("token").toString()
         }
-
     };
-    let postOptions={
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            Pragma: "no-cache",
-            token: localStorage.getItem("token").toString()
-        }
-    }
+    let responseRaw = await fetch(url, options);
+    let response = await responseRaw.json();
+    this.setState({following:response.posts, showSpinner:false})
+}
+
+   async componentWillMount(){
+
+       let url= api.backaddr+'/api'
+      
+        let options = {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                Pragma: "no-cache",
+                token: localStorage.getItem("token").toString()
+            }
+        };
+  
     let responseRaw= await fetch(url, options);
     let response = await responseRaw.json();
-    console.log('user ', response)
+
+
     if(response.user.feed){
-        let Feedurl = api+ '/api/feed';
+        let Feedurl = api.backaddr+ '/api/feed';
     let Feedoptions = {
         method: "GET",
         headers: {
@@ -268,19 +375,15 @@ async componentDidMount(){
     };
     let FeedresponseRaw = await fetch(Feedurl, Feedoptions);
     let Feedresponse = await FeedresponseRaw.json();
-    let likedResponseRaw = await fetch(likedUrl, postOptions);
-    let likedResponse = await likedResponseRaw.json();
+    console.log("🚀 ~ file: HomeLogged.jsx ~ line 369 ~ HomeLogged ~ componentWillMount ~ Feedresponse", Feedresponse)
+    
+   this.fetchNotificationsFeed();
 
-    let usrFollowRaw = await fetch(followArrayUrl, postOptions);
-    let usrFollowResponse = await usrFollowRaw.json();
+    
     this.socket.emit('join_push_notifications', response.user.id.toString())
-    this.setState({uid:response.user.id.toString(),feed:response.user.feed, feedPosts:Feedresponse.posts, usrUpVoted:likedResponse.upVoted, usrFollow:usrFollowResponse.following})
+    this.setState({uid:response.user.id.toString(),feed:response.user.feed, feedPosts:Feedresponse.posts})
     }else {
-
-
     }
-
-  
     }
 /**
  * 
@@ -291,7 +394,7 @@ async componentDidMount(){
         if (this.state.recentlyPosts === null ) {
             return (
                 <div>
-                   <Spinner/>
+                   <RecentlyScheleton/>
                 </div>
             )
         }else if(this.state.recentlyPosts.length === 0){
@@ -303,25 +406,18 @@ async componentDidMount(){
             //post.upVoted=liked
            // post.follow= follow
             return (
-                <div>
-                    <div className="my-post-item">
-                        <Row>
-                            <Col md="2"></Col>
-                            <Col md="8">
-                               <Card className="change-cursor" onClick={()=>{
+                    <div className="recently-size">
+                               <Card className="recently-card-box background-component " style={{alignItems:'center', alignContent:'center', justifyContent:'center', padding:'10px'}} onClick={()=>{
                                     window.location.assign('/post/'+post._id.toString())
                                }}>
-                                   <CardBody>
-                                    <CardTitle>
-                                    {post.header.length>20?post.header.substring(0, 20)+"...":post.header}
+                                   <CardBody className="" style={{padding:'10px'}}>
+                                    <CardTitle className="justify-content-center">
+                                   <p className="recently-text"> {post.header.length>20?post.header.substring(0, 20)+"...":post.header}</p>
                                     </CardTitle>
                                    </CardBody>
                                </Card>
-                            </Col>
-                            <Col md="2"></Col>
-                        </Row>
                     </div>
-                </div>
+               
             );
         })
     }
@@ -332,7 +428,7 @@ async componentDidMount(){
         if (this.state.following === null ) {
             return (
                 <div>
-                    <Spinner/>
+                   <GenerateSkeletonsCard/>
                 </div>
             )
         }else if (this.state.following.length === 0){
@@ -341,126 +437,19 @@ async componentDidMount(){
             </div>)
         }
         return this.state.following.map((post)=>{
-
-      
                 /**
                  * TapeView
                  */
+            
             return(<div>
-            <Card style={{marginTop:'2vh'}}>
-                <CardBody>
-                <CardTitle>{post.header.length>20?post.header.substring(0, 20)+"...":post.header}</CardTitle>
-                <CardSubtitle>@{post.postedBy}</CardSubtitle>
-                <CardBody>
-                   {this.showCarousel(post.media)}
-                </CardBody>
-                <CardBody>{post.body.length>30?post.body.substring(0, 30)+"...":post.body}</CardBody>
-                </CardBody>
-                
-                <CardFooter>
-                    <Row>
-                        <Col>
-                    <img className="change-cursor" src={this.state.usrUpVoted.includes(post._id.toString())?upDone:upNone} onClick={async ()=>{
-                        let url= api + '/api/up?id='+post._id.toString()
-                        let options = {
-                          method: "POST",
-                          headers: {
-                              "Content-Type": "application/json",
-                              "Cache-Control": "no-cache, no-store, must-revalidate",
-                              Pragma: "no-cache",
-                              token: localStorage.getItem("token").toString()
-                          }
-                      };
-                       fetch(url, options);
-                       if(this.state.usrUpVoted.includes(post._id.toString())){
-                        let newUpvotes = this.state.usrUpVoted;
-                        newUpvotes.splice(newUpvotes.indexOf(post._id.toString), 1);
-                      this.setState({usrUpVoted:newUpvotes})
-                    }else {
-                        let newUpvotes = this.state.usrUpVoted;
-                        newUpvotes.push(post._id.toString())
-                        this.setState({usrUpVoted:newUpvotes})
-                    }  
-                      
-                    }}></img>
-                    </Col><Col>
-                     <img className="change-cursor" src={this.state.usrFollow.includes(post._id.toString())?starDone:starNone} onClick={async ()=>{
-                        let url= api + '/api/follow?id='+post._id.toString()
-                        let options = {
-                          method: "POST",
-                          headers: {
-                              "Content-Type": "application/json",
-                              "Cache-Control": "no-cache, no-store, must-revalidate",
-                              Pragma: "no-cache",
-                              token: localStorage.getItem("token").toString()
-                          }
-                      };
-                     fetch(url, options);
-                     if(this.state.usrFollow.includes(post._id.toString())){
-                        //remove from list 
-                        let newFollow= this.state.usrFollow;
-                        newFollow.splice(newFollow.indexOf(post._id.toString()), 1)
-                        this.setState({usrFollow:newFollow})
-                    }else {
-                        //add to list 
-                        let newFollow= this.state.usrFollow;
-                        newFollow.push(post._id.toString())
-                        this.setState({usrFollow:newFollow})
-                    } 
-                     
-                    }}></img>
-                    </Col>
-                    </Row>
-                </CardFooter>
-            </Card>
+            <PostItem post={post}/>
             </div>)
             
         })
 
     }
-/**
- * Generate feed cards 
- */
-/**
- * Check if post has media
- * if has: show carousel, map media
- * if not: show message "this post has no media attached"
- * 
- */
 
-showCarousel=(media)=>{
-    if(media.length>0){
-        return(<div className="card-media-carousel"><Carousel itemsToShow={1}
-        showArrows={media.length===1?false:true}
-        disableArrowsOnEnd={false}
-        enableMouseSwipe={false}
-        
-        >
-               {
-              media.map((element)=>{
-                  if(element.split('.')[1]==="mp4"){
-                      return(
-                          <div style={{width:'100%', height:'100%',padding:'10px'}}>
-                               <ReactPlayer
-                           className='react-player'
-                           url={element}
-                           width='100%'
-                           height='100%'
-                           controls={true}
-                         />
-                          </div>
-                      )
-                  }
-                  return(<div>
-                      <img src={element}></img>
-                  </div>)
-              })
-          }
-        </Carousel></div>)
-    }else {
-        return(<div>This post has no media</div>)
-    }
-}
+
 
 generateFeedCards=  (props)=>{
     if (this.state.feedPosts === null || this.state.feedPosts.length === 0) {
@@ -471,227 +460,149 @@ generateFeedCards=  (props)=>{
         )
     }
   
-    return this.state.feedPosts.map((post)=>{
+    return this.state.feedPosts.map((post, i)=>{
+    console.log("🚀 ~ file: HomeLogged.jsx ~ line 457 ~ HomeLogged ~ returnthis.state.feedPosts.map ~ i", i)
+    console.log("🚀 ~ file: HomeLogged.jsx ~ line 457 ~ HomeLogged ~ returnthis.state.feedPosts.map ~ i feed", this.state.feedPosts.length)
+
+        if((i+1) === this.state.feedPosts.length){
+                return(
+                    <div>
+                            <PostItem post={post}/>
+                    <InView>
+                    {({ inView, ref, entry }) => {
+                        if(inView && !this.state.updated){
+                            this.setState({showSpinner:true, updated:true})
+                            this.fetchFeed()
+                        }
+                    console.log("🚀 ~ file: HomeLogged.jsx ~ line 473 ~ HomeLogged ~ returnthis.state.feedPosts.map ~ inView", inView)
+                        
+                        return(
+                <div className="card-size latest-card" ref={ref}>
+                         <GenerateSkeletonsCard/>
+                </div>)
+        }}
+                        </InView>
+                        
+                        </div>
+                )
+        }
+
         return(<div className="card-size">
-        <Card  style={{marginTop:'2vh', backgroundColor:'#eeeeee'}}>
-            <CardBody>
-            <CardTitle onClick={()=>{
-                window.location.assign('/post/'+post._id.toString())
-               }}><p className="change-cursor card-text-header1 ">{post.header.length>30?post.header.substring(0, 30)+"...":post.header}</p></CardTitle>
-            <CardSubtitle><Link to={'/user/'+post.postedBy}>@{post.postedBy}</Link></CardSubtitle>
-            <CardBody >
-              {this.showCarousel(post.media)}
-            </CardBody>
-            <CardBody className="float-left text-justify">{post.body.length>150?post.body.substring(0,150)+"...":post.body}</CardBody>
-            </CardBody>
-            
-            <CardFooter style={{backgroundColor:'#eeeeee'}}>
-                <Row>
-                    <Col>
-                <img className="change-cursor" src={post.userUpVoted?upDone:upNone} onClick={async ()=>{
-                    post.userUpVoted= !post.userUpVoted
-                    let url= api + '/api/up?id='+post._id.toString()
-                    let options = {
-                      method: "POST",
-                      headers: {
-                          "Content-Type": "application/json",
-                          "Cache-Control": "no-cache, no-store, must-revalidate",
-                          Pragma: "no-cache",
-                          token: localStorage.getItem("token").toString()
-                      }
-                  };
-                   fetch(url, options)
-                 
-                    if(!post.userUpVoted){
-                        //exclude
-                        let audio = new Audio(unPop)
-                        audio.play()
-                        post.upVotes--;
-                    }else {
-                        //include
-                        let audio = new Audio(pop)
-                        audio.play()
-                        post.upVotes++;
-                    }
-                     this.setState({update:!this.state.update})
-                }}></img> 
-                &nbsp;
-                <span>{post.upVotes}</span>
-                </Col><Col>
-                 <img className="change-cursor" src={this.state.usrFollow.includes(post._id.toString())?starDone:starNone} onClick={async ()=>{
-                    let url= api + '/api/follow?id='+post._id.toString()
-                    let options = {
-                      method: "POST",
-                      headers: {
-                          "Content-Type": "application/json",
-                          "Cache-Control": "no-cache, no-store, must-revalidate",
-                          Pragma: "no-cache",
-                          token: localStorage.getItem("token").toString()
-                      }
-                  };
-                 fetch(url, options);
-                if(this.state.usrFollow.includes(post._id.toString())){
-                    //remove from list 
-                    let newPosts = this.state.feedPosts;
-                    newPosts.forEach(element => {
-                      if(element._id.toString()===post._id.toString()){
-                          element.followers--;
-                      }
-                  });
-                    let newFollow= this.state.usrFollow;
-                    newFollow.splice(newFollow.indexOf(post._id.toString()), 1)
-                    this.setState({usrFollow:newFollow, feedPosts:newPosts})
-                }else {
-                    //add to list 
-                    let newPosts = this.state.feedPosts;
-                    newPosts.forEach(element => {
-                      if(element._id.toString()===post._id.toString()){
-                          element.followers++;
-                      }
-                  });
-                    let newFollow= this.state.usrFollow;
-                    newFollow.push(post._id.toString())
-                    this.setState({usrFollow:newFollow, feedPosts:newPosts})
-                } 
-                }}></img>
-                &nbsp;
-                <span>{post.followers}</span>
-                </Col>
-                </Row>
-            </CardFooter>
-        </Card>
+            <PostItem post={post}/>
         </div>)
     })
 }
 
-clearNotificationsFeedCard=(id)=>{
-    let url= api + '/api/clearCommentQueue?id='+id;
-    let options = {
-      method: "POST",
-      headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          token: localStorage.getItem("token").toString()
-      }
-  };
-  fetch(url, options);
-}
 
-
-generateNotificationsFeed=()=>{
-    let feed;
-    if(this.state.notificationsFeed===null){
-        feed = this.fetchNotificationsFeed();
-    }else {
-        if(this.state.notificationsFeed!==null && this.state.notificationsFeed !== undefined){
-            return(this.state.notificationsFeed.map(element=>{
-               
-                return(<ListGroupItem style={{marginTop:'1vh', borderRadius:'5%'}} className="float-left" className="change-cursor" onClick={()=>{
-                    this.clearNotificationsFeedCard(element.postId)
-                    window.location.assign('/post/'+element.postId)
-                }}>New comments on: {element.postHeader.length>20?element.postHeader.substring(0, 20)+"...":element.postHeader}&nbsp;<Badge style={{color:"#00adb5", backgroundColor:"#ffffff"}}>{element.number}</Badge></ListGroupItem>)
-            }
-            ))
-        }
-    }
-
-}
-fetchNotificationsFeed=()=>{
-    let url= api + '/api/notifications';
-    let options = {
-      method: "GET",
-      headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          token: localStorage.getItem("token").toString()
-      }
-  };
-  fetch(url, options).then(response=>response.json()).then(response=>{
-      this.setState({notificationsFeed:response.notificationsComments})
-  })
-}
-toggleNotifications=()=>{
-    this.setState({toggleNotificationsCollapse:!this.state.toggleNotificationsCollapse})
-}
     render() {
-        if(this.state.recentlyPosts===[] && this.state.recentlyPosts === null){
-            return null
-        }
+       
         return (
-            <div>
+            <div className="background" style={{minHeight:'110vh'}}>
+                <ScrollToTop smooth color="#08d9d6" />
                 <Row>
                     <Col>
                         <Navbar/>
-
                     </Col>
                 </Row>
-                <Row >
+                <Row style={{marginTop:'1vh'}}>
                     <Col>
+                        <Container>
                     <div>
-                    <p className="text-header2 float-left">Recently upvoted posts</p>
-                        <Carousel itemsToShow={3}  breakPoints={this.breakPoints}
+                    <p className="text-header2 float-left text-color" style={{}} >Recently upvoted posts</p>
+                        <Carousel enableTilt={true} enableAutoPlay autoPlaySpeed={30000}  itemsToShow={3} itemsToScroll={1} breakPoints={this.breakPoints}  disableArrowsOnEnd={false}
   onResize={currentBreakPoint => console.log(currentBreakPoint)}>
                            {this.generateRecentlyItems(this.state.recentlyPosts)}
                         </Carousel>
                         </div>
+                        </Container>
                     </Col>
                 </Row>
-                <Row style={{marginTop:'2vh'}}>
+                <Container>
+                    <Row>
+                        <Col>
+                        <hr></hr></Col>
+                        </Row>
+                </Container>
+                <Row className="background" style={{marginTop:'2vh'}}>
                 <Col md={{size:0}} lg={{size:2, order:1}}> </Col>
                     <Col  xs={{size:12, order:2}} sm={{size:12, order:2}} md={{size:12, order:2}} lg={{size:5, order:2}}>
                     <div>
-                        <div style={{display:'flex'}}>
-                    <Dropdown isOpen={this.state.dropdownOpen} toggle={this.toggleDrop} >
-      <DropdownToggle caret>
-        {this.state.feed!==null?this.state.feed?"Feed":"Following":"unknowk"}
-        </DropdownToggle>
+                       <Row>
+                           <Col>
+                    <ButtonDropdown outline color="primary" isOpen={this.state.dropdownOpen} toggle={this.toggleDrop} className="float-left">
+                    <DropdownToggle caret outline color="primary">
+                                        {this.state.dropDownText[this.state.dropDownTextIndex]}
+                            </DropdownToggle>
       <DropdownMenu>
         <DropdownItem onClick={()=>{
-            this.setState({feed:true})
+            this.fetchFeed();
+            this.setState({feed:true, dropDownTextIndex:0, following:[]})
         } }>Feed</DropdownItem>
         <DropdownItem onClick={()=>{
-            this.setState({feed:false})
+            //fetch following posts
+            this.fetchFollowingPosts()
+            this.setState({feed:false, dropDownTextIndex:1})
         }}>Following</DropdownItem>
       </DropdownMenu>
-    </Dropdown>
-    </div>
-        {(this.state.feedPosts && this.state.feed)?this.generateFeedCards():this.generateFollowingItems(this.state.followingPosts)}
+    </ButtonDropdown>
+    </Col><Col>
+    <Button outline color="danger" className="float-right" onClick={()=>{window.location.assign('/popular')}}>Last 12h most upvoted</Button>
+    </Col>
+    </Row>
+
+        {(this.state.feedPosts && this.state.feed)?this.generateFeedCards():this.generateFollowingItems()}
                         </div>
                         </Col>
-
-                        <Col className="" xs={{size:12, order:1 ,}}  sm={{size:12, order:1}} md={{size:12, order:1}} lg={{size:3, order:3}}>
-                            <div style={{width:'100%'}}>
-                            <div>
-                        <Label className="text-header2 float-left">Notifications</Label>
-                       <img id="toggleImg" className="change-cursor dropdown-img float-right" src={this.state.toggleNotificationsCollapse?expandImg:collapseImg} onClick={this.toggleNotifications}></img>
-                        </div>
-                        <UncontrolledCollapse toggler="toggleImg" style={{width:'100%'}}>
-                        <div>
-                       
-                            <div className="" style={{width:'100%', height:'200px', overflowY:'scroll'}}>
-                        <div  style={{width:'100%'}}>
-                        <ListGroup>
-                            {this.generateNotificationsFeed()}
-                        </ListGroup>
-                        </div>
-                        </div>
-                        </div>
-
-                        </UncontrolledCollapse>
-                        </div>
+                           
+                        <Col className="hide-scroll" xs={{size:12, order:1 }}  sm={{size:12, order:1}} md={{size:12, order:1}} lg={{size:3, order:3}}>
+                           
+                        <Sticky className={this.state.isNotificationsFixed?'':''}  onFixedToggle={(toggle)=>{this.setState({isNotificationsFixed:toggle})}}>
+                            <div className={this.state.isNotificationsFixed?'slideDown':''}>
+                            <div className="notifications-wrapper background-component" style={{width:'100%', backgroundColor:'whitesmoke', borderRadius:this.state.notificationsIsOpen?'20px':'50px', padding:'20px'}}>
+                           {this.NotificationsComponent()}
+                            </div>
+                            </div>
+                        </Sticky>
                          </Col>  
+                         
                 </Row>
-                <Row style={{height:'2vh'}}>
-                    <Col>
-                    {this.state.showSpinner?<Spinner style={{marginTop:'2vh', marginBotton:'2vh'}}/>:null}
-                    </Col>
-                </Row>
+               
+                
             </div>
         )
     }
 }
+const GenerateSkeletonsCard = ()=>{
+    const min = 1;
+    const max = 3;
+    const random = Math.ceil(min + (Math.random() * (max - min)));
+    
+    let Arr = Array.from(Array(random).keys())
+    return Arr.map(element=>{
+        return <PostItemScheleton/>
+    })
+}
+
+const RecentlyScheleton = ()=>{
+
+    return(
+        <div className="recently-size">
+     <Spinner color="primary"/>
+</div>
+    )
+}
+
 
 
 export default HomeLogged;
+
+
+/**
+ *  <Row >
+                    <Col md={{size:0}} lg={{size:2, order:1}} ></Col>
+                    <Col xs={{size:12, order:2}} sm={{size:12, order:2}} md={{size:12, order:2}} lg={{size:5, order:2}}>
+                    {this.state.showSpinner? <GenerateSkeletonsCard/>:null
+                    }
+                    </Col>
+                </Row>
+ */

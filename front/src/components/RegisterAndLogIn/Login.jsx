@@ -2,36 +2,24 @@ import React from 'react';
 import {
     Row,
     Col,
-    Button,
-    Label,
-    FormGroup,
-    InputGroup,
-    InputGroupAddon,
-    InputGroupText,
-    InputGroupButton,
-    Input,
+   
     Modal,
     ModalHeader,
     ModalBody,
     ModalFooter,
     Spinner,
 } from 'reactstrap';
-import {
-    AvForm,
-    AvField,
-    AvGroup,
-    AvInput,
-    AvRadioGroup,
-    AvRadio,
-    AvFeedback
-} from 'availity-reactstrap-validation';
 
 
+import {TextField, Button, FormControl, InputLabel, Input, FormHelperText, IconButton, InputAdornment, OutlinedInput } from '@material-ui/core';
+import Visibility from "@material-ui/icons/Visibility";
+import VisibilityOff from "@material-ui/icons/VisibilityOff";
+import Footer from '../Footer/Footer';  
 import eye from '../../assets/eye.png';
 
-
-import api from '../../constants/api'
-import FacebookLogin from 'react-facebook-login';
+import ctLogo from '../../assets/security.png';
+import api from '../../constants/api';
+import FacebookLogin from 'react-facebook-login/dist/facebook-login-render-props'
 
 /**
  * TODO:
@@ -39,25 +27,27 @@ import FacebookLogin from 'react-facebook-login';
  * Error report button
  * 
  */
-const LogInWithFacebook = ()=>{
-return (
-<div style={{position:'fixed', top:'0', right:'0%', zIndex:'10000'}}>
-
-<FacebookLogin
-    appId="859679134858810"
-    autoLoad={false}
-    fields="name,email,picture"
-    onClick={()=>{console.log('onclick')}}
-    callback={responseFacebook} />
-</div>
-
-)
+ const LogInWithFacebook = ()=>{
+    return (
+   
+    
+    <FacebookLogin
+        appId="859679134858810"
+        autoLoad={false}
+        fields="name,email,picture"
+        onClick={()=>{console.log('onclick')}}
+        callback={responseFacebook}
+        render={renderProps => (
+            <Button variant="outlined" color="primary" onClick={renderProps.onClick} >Log in with Facebook</Button>
+          )}
+        />
+    )
 }
 
 const responseFacebook = (response) => {
     let token = response.accessToken;
     if(token !== undefined && token !== null && token !== ""){
-     let url=api+'/fb'
+     let url=api.backaddr+'/fb'
      let options = {
          method: "POST",
          headers: {
@@ -97,23 +87,54 @@ class Login extends React.Component{
             fetchModalVar:false,
             errText:null,
             replaceSubmit:false,
+            email:"",
+            password:"",
+            emailErr:"",
+            passwordErr:"",
+            width:null,
+            height:null,
         }
     }
+
+    componentWillMount(){
+        
+        console.log("mount ", window.innerWidth)
+        this.setState({ width: window.innerWidth, height: window.innerHeight });
+    }
+    updateDimensions = () => {
+        console.log("RESIZE ", window.innerWidth)
+        this.setState({ width: window.innerWidth, height: window.innerHeight });
+      };
+      componentDidMount() {
+        window.addEventListener('resize', this.updateDimensions);
+      }
+      componentWillUnmount() {
+        window.removeEventListener('resize', this.updateDimensions);
+      }
+
+    isValidEmailAddress = ()=> {
+        return !! this.state.email.match(/.+@.+/);
+    }
     handleLoginSubmit=()=>{
-        this.setState({replaceSubmit:true})
-        let route='/login'
-let success=1;
-if(document.getElementById("email").value==="")
-        {
-            this.setState({errNumber:1, closeModal:true})
-            return
+       
+        let errFlag = 0;
+        if(this.state.email.length===0){
+            this.setState({emailErr:"Email input empty"});
+            errFlag = 1;
         }
-        if(document.getElementById("pass").value==="")
-        {
-            this.setState({errNumber:2, closeModal:true})
-            return
-        } 
-        let url = api + route;
+        if(!this.isValidEmailAddress()){
+            this.setState({emailErr:"Please insert Email"});
+            errFlag = 1;
+        }
+        if(this.state.password.length===0){
+            this.setState({passwordErr:"Password input empty"});
+            errFlag = 1;
+        }
+
+        if(errFlag === 1){return;}
+
+        this.setState({replaceSubmit:true})
+        let url = api.backaddr + '/login';
 
         let options = {
           method: "POST",
@@ -123,23 +144,29 @@ if(document.getElementById("email").value==="")
             Pragma: "no-cache",
           },
           body: JSON.stringify({
-            email: document.getElementById("email").value,
-            password: document.getElementById("pass").value,
+            email: this.state.email,
+            password: this.state.password,
           }),
         };
     
         let Urlresponse =  fetch(url, options).then(response => response.json())
         .then(response => {
-            if(response){
-                    localStorage.setItem("token", response.token)
-                    window.location.replace('/profile')
-            }
-           
+            console.log('response : ', response)
+           if(response.ok === 0){
+          this.setState({passwordErr:" ",emailErr:response.msg, replaceSubmit:false})
+          return;
+           }
+           localStorage.setItem("token", response.token)
+           window.location.replace('/profile')
         }).catch(err=>{
           console.error('[Login] Fetch error : ', err.toString())
           this.setState({fetchModalVar:true, errText:err.toString()})
          })
+
+
     }
+
+
     handleModal=()=> {
         this.setState({
             closeModal: !this.state.closeModal
@@ -148,6 +175,7 @@ if(document.getElementById("email").value==="")
         window.location.replace('/profile')
         }
     }
+
     fetchModal=()=>{
         this.setState({fetchModalVar:!this.state.fetchModalVar})
     }
@@ -156,39 +184,10 @@ if(document.getElementById("email").value==="")
     }
 
     render(){
-        let email_header="Email validation"
-        let pass_header="Pass validation"
-        let good_header="Login Success"
-        
-        let email_body="The email you entered is not correct"
-        let pass_body="The password you entered is not correct"
-        let good_body="You will be redirected to your profile page"
-        
-        let unsuccess_header="Unable to log you in :(";
-        let unsuccess_body="Password or email incorrect"
+  
         return(
-            <div className="login-page">
-                <LogInWithFacebook/>
-                <Modal isOpen={
-                       this.state.closeModal
-                    }
-                    toggle={
-                        this.state.closeModal
-                }>
-                    <ModalHeader toggle={
-                        this.closeModal
-                    }> {this.state.errNumber===1?email_header:this.state.errNumber===2?pass_header:this.state.errNumber===3?unsuccess_header:this.state.errNumber===null?good_header:"undefined"} </ModalHeader>
-                    <ModalBody>
-                    {this.state.errNumber===1?email_body:this.state.errNumber===2?pass_body:this.state.errNumber===3?unsuccess_body:this.state.errNumber===null?good_body:"undefined"}
-                    
-                    </ModalBody>
-                    <ModalFooter>
-                        <Button color="primary"
-                            onClick={
-                                this.fetchModal
-                        }>Ok, got it!</Button>
-                    </ModalFooter>
-                </Modal>
+            <div className="login-page background">
+                
                 <Modal isOpen={
                        this.state.fetchModalVar
                     }
@@ -212,73 +211,123 @@ if(document.getElementById("email").value==="")
                     </ModalFooter>
                 </Modal>
 
-               <a href="/"> <p>← back to home</p></a>
-           <Row>
-                <Col></Col>
-                <Col xs="12" sm="6" md="4">
-                <div className="user-login-position">
-                    <div className="fade-in">
-                        <p className="text-header1">Log in into your account
-                        </p>
-                        <br></br>
-                        <AvForm >  
-                             <AvGroup>
-                                <Label for="email"
-                                    style={
-                                        {color: "black"}
-                                }>Email</Label>
-                                <InputGroup>
-                                    <AvInput name="email" placeholder="Enter your email " required
-                                      onKeyPress={(key)=>{
-                                        if(key.key==="Enter")
-                                        {
-                                            this.handleLoginSubmit();
-                                        }
-                            }}
-                                    />
-                                </InputGroup>
-                            </AvGroup>
-                            <AvGroup>
-                                <Label for="pass"
-                                    style={
-                                        {color: "black"}
-                                }>Password</Label>
-                                <InputGroup >
-                                    <AvInput 
-                                    type={this.state.showPass===true?"text":"password"}
-                                        name="pass"
-                                        placeholder="Your Password goes here"
-                                        required
-                                        onKeyPress={(key)=>{
-                                            if(key.key==="Enter")
-                                            {
-                                                this.handleLoginSubmit();
-                                            }
-                                }}
-                                        />
-                                    <InputGroupAddon addonType="append">
-                                        <InputGroupText>
-                                            <img src={eye}
-                                                className="show-pass-icon"
-                                                onClick={()=>{this.setState({showPass:!this.state.showPass})}}
-                                             ></img>
-                                        </InputGroupText>
-                                    </InputGroupAddon>
-                                </InputGroup>   
-                            </AvGroup>
-                            <AvGroup>
-                                <a href="/forgot">Forgot your password?
-                                </a>
-                            </AvGroup>
-                            {this.state.replaceSubmit?<div><Spinner color="dark" type="grow"/></div>:<Button outline color="primary"
-                              onClick={this.handleLoginSubmit} >Submit</Button>}
-                            </AvForm>
-                            </div>
-                            </div>
+
+
+           <Row className="" style={{minHeight:'90vh'}}>
+               {this.state.width>991?<Col></Col>:null}
+                <Col sm="12" md="12" lg="4" className="align-items-center justify-content-center"  >
+
+                <div className="user-login-position float-center">
+                   
+
+                <div className="login-component" style={{}}>
+
+                       <a href="/"> <p>← back to register</p></a>
+                     <p className="text-header2">Log in on ctGuard <span><img src={ctLogo} style={{width:'36px', height:"36px"}}></img></span></p> 
+                   
+                           <Row><Col style={{width:'300px'}}>
+                                                <TextField
+                                  inputProps={{ maxLength: 50 }}
+                    style={{width:'300px'}}
+                    error={this.state.emailErr}
+                    id="outlined-error-helper-text"
+                    type="email"
+                    label="Email"
+                    placeholder="Enter your email"
+                    helperText={this.state.emailErr.length>0?this.state.emailErr:''}
+                    variant="outlined"
+                    onKeyPress={(evt)=>{
+                        if(evt.key === "Enter"){this.handleLoginSubmit()}
+                    }}
+                    onChange={(evt)=>{this.setState({email:evt.target.value, emailErr:""})}}
+                                />
+                                </Col>
+                    </Row>
+                    <br></br>
+
+                    <Row ><Col>
+                    <FormControl  variant="outlined" helperText={this.state.passwordErr.length>0?this.state.passwordErr:""}>
+          <InputLabel htmlFor="outlined-adornment-password">Password</InputLabel>
+                                                <OutlinedInput
+                                                
+                                  inputProps={{ maxLength: 25 }}
+                                                style={{width:'300px'}}
+                    error={this.state.passwordErr}
+                    type={this.state.showPass?"text":"password"}
+                    className="outlined-error-helper-text  outlined-adornment-password"
+                    label="Password"
+                    placeholder="Choose a password"
+                    onKeyPress={(evt)=>{
+                        if(evt.key === "Enter"){this.handleLoginSubmit()}
+                    }}
+                    variant="outlined"
+                    onChange={(evt)=>{this.setState({password:evt.target.value, passwordErr:""})}}
+                   
+                    endAdornment={
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label="toggle password visibility"
+                            onClick={()=>{this.setState({showPass:!this.state.showPass})}}
+                            onMouseDown={()=>{this.setState({showPass:!this.state.showPass})}}
+                            edge="end"
+                          >
+                            {this.state.showPass ? <Visibility /> : <VisibilityOff />}
+                          </IconButton>
+                        </InputAdornment>
+                      }
+                      labelWidth={70}
+
+                            />
+                                </FormControl>
+                   </Col>
+                    </Row>
+                    <br></br>
+
+                    <Row >
+                        <Col></Col>
+                        <Col>
+                    {this.state.replaceSubmit && <Spinner/>}
+{!this.state.replaceSubmit &&
+<Button variant="outlined" color="primary" style={{outline:'none', width:'270px'}} onClick={this.handleLoginSubmit}>
+  Log in
+</Button>}
+
+                    </Col>
+                    <Col></Col>
+                    </Row>
+    <br></br>
+                    <Row >
+                        <Col></Col>
+                        <Col style={{width:'270px'}}>
+                <LogInWithFacebook/>
                 </Col>
                 <Col></Col>
+                    </Row>
+<div style={{marginTop:'10px'}}>
+    <p>Forgot your password?&nbsp;<a href="/forgot">Reset it!</a></p>
+</div>
+
+
+ </div>
+                         
+
+                
+                
+                 </div>
+                </Col>
+                
+               {this.state.width>991?<Col></Col>:null}
            </Row>
+
+           <Row><Col>
+               <Footer/>
+               </Col>
+    
+           </Row>
+
+
            </div>
+           
         )
     }
 }

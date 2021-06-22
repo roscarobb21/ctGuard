@@ -1,15 +1,8 @@
-import React , {Component } from 'react';
+import React, {Component} from 'react';
 import {
     Row,
     Col,
-    Button,
-    Label,
-    FormGroup,
-    InputGroup,
-    InputGroupAddon,
-    InputGroupText,
-    InputGroupButton,
-    Input,
+    Container,
     Modal,
     ModalHeader,
     ModalBody,
@@ -25,288 +18,376 @@ import {
     AvRadio,
     AvFeedback
 } from 'availity-reactstrap-validation';
+import {Form} from 'react-bootstrap';
+import {TextField, Button, FormControl, InputLabel, Input, FormHelperText, IconButton, InputAdornment, OutlinedInput } from '@material-ui/core';
+import {Autocomplete} from '@material-ui/lab';
+import Footer from '../Footer/Footer';
 
-import eye from '../../assets/eye.png'
+import api from '../../constants/api';
+import eye from '../../assets/eye.png';
+import ctGuardLogo from '../../assets/security.png';
+import ctVideo from '../../assets/ctVideo.mp4';
+
+import { makeStyles } from '@material-ui/core/styles';
+import { CountryDropdown, RegionDropdown, CountryRegionData } from 'react-country-region-selector';
 import './RegisterAndLogin.css'
+import { ThemeConsumer } from 'styled-components';
+import { findAllByDisplayValue } from '@testing-library/dom';
+import Visibility from "@material-ui/icons/Visibility";
+import VisibilityOff from "@material-ui/icons/VisibilityOff";
+
+
+import '../router/Global.css'
+
+
+import FacebookLogin from 'react-facebook-login/dist/facebook-login-render-props'
+const countries = [{title:"Romania"}, {title:"USA"}]
+const region = [{title:"Suceava"}, {title:"Bucuresti"}, {title:"Iasi"}]
+
+
+const LogInWithFacebook = ()=>{
+    return (
+   
+    
+    <FacebookLogin
+        appId="859679134858810"
+        autoLoad={false}
+        fields="name,email,picture"
+        onClick={()=>{console.log('onclick')}}
+        callback={responseFacebook}
+        render={renderProps => (
+            <Button variant="outlined" color="primary" onClick={renderProps.onClick} >Log in with Facebook</Button>
+          )}
+        />
+    )
+}
+const responseFacebook = (response) => {
+    let token = response.accessToken;
+    if(token !== undefined && token !== null && token !== ""){
+     let url=api.backaddr+'/fb'
+     let options = {
+         method: "POST",
+         headers: {
+           "Content-Type": "application/json",
+           "Cache-Control": "no-cache, no-store, must-revalidate",
+           Pragma: "no-cache",
+         },
+         body: JSON.stringify({
+           email: response.email.toString(),
+           name: response.name.toString(),
+           id: response.id.toString(),
+           accessToken: token
+         }),
+       };
  
+       let Urlresponse =  fetch(url, options).then(response => response.json())
+       .then(response => {
+         if(response.token !== undefined && response.token !== null){
+             localStorage.setItem("token", response.token)
+             window.location.replace('/profile')
+         }else {
+             alert('There is a problem with the facebook login')
+         }
+       })
+   
+    }// if token ok
+    else {
+        alert('There is a problem logging you in with facebook')
+    }
+ 
+   }
 
-
-  /**
+/**
    * Register page component
    */
-class Register extends Component{
-    constructor(props){
-        super(props);
-        this.state={
-            showPass:false,
-            showConfirm:false,
-            closeModal:false,
-            allValid:true,
-            errNumber:null,
-            replaceSubmit:false,
-            fetchModalVar:false,
-            errText:null,
-        }
+
+class Register extends React.Component{
+constructor(props){
+    super(props)
+    this.state={
+        showPass:false,
+        replaceSubmit:false,
+        email:"",
+        username:"",
+        password:"",
+        confirm:"",
+        country:"",
+        region:"",
+        emailErr:"",
+        usernameErr:"",
+        passwordErr:"",
+        confirmErr:"",
+        countryErr:"",
+        regionErr:"",
     }
-    handleModal=()=> {
-        this.setState({
-            closeModal: !this.state.closeModal
-        })
-        if(this.state.finish){
-        window.location.replace('/home')
-        }
-    }
-    SubmitRegisterRequest=()=>{
-        this.setState({replaceSubmit:true})
-        let success=1;
-if(document.getElementById("email").value==="")
-        {
-            this.setState({errNumber:1, closeModal:true})
-            return
-        }
-        if(document.getElementById("pass").value==="")
-        {
-            this.setState({errNumber:2, closeModal:true})
-            return
-        } 
-        if(document.getElementById("username").value==="")
-        {
-            this.setState({errNumber:5, closeModal:true})
-            return
-        } 
-        if(document.getElementById("confirm").value==="" || document.getElementById("confirm").value!==document.getElementById("pass").value )
-        {
-            this.setState({errNumber:3, closeModal:true})
-            return
-        } 
-        let url=api+'/signup'
-        let options = {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Cache-Control": "no-cache, no-store, must-revalidate",
-              Pragma: "no-cache",
-            },
-            body: JSON.stringify({
-              email: document.getElementById("email").value,
-              password: document.getElementById("pass").value,
-              confirm: document.getElementById("confirm").value,
-              username: document.getElementById("username").value
-            }),
-          };
-
-          let Urlresponse =  fetch(url, options).then(response => response.json()).catch(err=>{console.log("my custom err : ", err);this.setState({fetchModalVar:true, errText:err.toString()})})
-          .then(response => {
-          
-              if(response){
-                  if(response.user=="email")
-                  {this.setState({errNumber:"taken", closeModal:true, finish:false})
-                return;}
-                if(response.user=="username"){
-                     {this.setState({errNumber:"username", closeModal:true, finish:false})}
-                     return;
-                }
-
-          this.setState({errNumber:null, closeModal:true, finish:true})
-  
-          window.location.replace('/login')
-  
-          return
-              }
-          })
-      
-
-
-    }
-    fetchModal=()=>{
-        this.setState({fetchModalVar:!this.state.fetchModalVar})
-    }
-    okErrButton=()=>{
-        window.location.reload();
-    }
-    render(){
-        let error=this.state.errNumber;
-        let email_header="Email validation" //1
-        let old_email_header="Email validation" //4
-        let pass_header="Pass validation" //2
-        let confirm_header="Confirm Pass validation" //3
-    
-        let good_header="Register Success"
-
-        let email_body="The email you entered is not correct"
-        let old_email_body="User with this email already exists"
-        let pass_body="The password you entered is not correct"
-        let good_body="You will be redirected to your profile page"
-        let confirm_body="Passwords do not match"
-        let unsuccess_header="Unable to log you in :(";
-        let unsuccess_body="Password or email incorrect"
-        let email_taken_body="Email already taken"
-        let username_header="Username validation";
-        let username_body="Username provided not unique or correct";
-
-        return(
-            <div>
-                <Modal isOpen={
-                       this.state.closeModal
-                    }
-                    toggle={
-                        this.state.closeModal
-                }>
-                    <ModalHeader toggle={
-                        this.closeModal
-                        
-                    }> {error===1?email_header:error===2?pass_header:error===3?confirm_header:error===4?old_email_header:error===5?username_header:error===null?good_header:error==="taken"?email_header:error==="username"?username_header:"undefined"} 
-                    </ModalHeader>
-                    <ModalBody>
-                    {error===1?email_body:error===2?pass_body:error===3?confirm_body:error===4?old_email_body:error===5?username_body:error===null?good_body:error==="taken"?email_taken_body:error==="username"?username_body:"undefined"}
-                    
-                    </ModalBody>
-                    <ModalFooter>
-                        <Button color="primary"
-                            onClick={
-                                this.handleModal
-                        }>Ok, got it!</Button>
-                    </ModalFooter>
-                </Modal>
-                <Modal isOpen={
-                       this.state.fetchModalVar
-                    }
-                    toggle={
-                        this.state.fetchModal
-                }>
-                    <ModalHeader toggle={
-                        this.fetchModal
-                    }> An error ocurred :( </ModalHeader>
-                    <ModalBody>
-                  {this.state.errText===null?"Unknown server error":this.state.errText+'. Try again later...'}
-                    </ModalBody>
-                    <ModalFooter>
-                        <Button color="primary">
-                            Report error
-                        </Button>
-                        <Button color="primary"
-                           onClick={
-                            this.okErrButton
-                    } >Ok, got it!</Button>
-                    </ModalFooter>
-                </Modal>
-            <Row>
-            <Col></Col>
-            <Col xs="12" sm="6" md="4">
-                <div className="user-login-position">
-                    <div className="fade-in">
-                        <p className="text-header1">Are you ready? Register now :
-                        </p>
-                        <br></br>
-                        <AvForm >
-                             
-                             <AvGroup>
-                                <Label for="username"
-                                    style={
-                                        {color: "black"}
-                                }>Username</Label>
-                                <InputGroup>
-                                    <AvInput name="username" placeholder="Pick your desired username" required
-                                      onKeyPress={(key)=>{
-                                        if(key.key==="Enter")
-                                        {
-                                            this.SubmitRegisterRequest();
-                                        }
-                            }}/>
-                                </InputGroup>
-                            </AvGroup>
-                            <AvGroup>
-                                <Label for="email"
-                                    style={
-                                        {color: "black"}
-                                }>Email</Label>
-                                <InputGroup>
-                                    <AvInput name="email" placeholder="Your email goes here" required
-                                    onKeyPress={(key)=>{
-                                        if(key.key==="Enter")
-                                        {
-                                            this.SubmitRegisterRequest();
-                                        }
-                            }}/>
-                                </InputGroup>
-                            </AvGroup>
-                            <AvGroup>
-                                <Label for="pass"
-                                    style={
-                                        {color: "black"}
-                                }>Password</Label>
-                                <InputGroup>
-                                    <AvInput 
-                                    type={this.state.showPass===true?"text":"password"}
-                                        name="pass"
-                                        placeholder="Your Password goes here"
-                                        required
-                                        onKeyPress={(key)=>{
-                                            if(key.key==="Enter")
-                                            {
-                                                this.SubmitRegisterRequest();
-                                            }
-                                }}/>
-                                    <InputGroupAddon addonType="append">
-                                        <InputGroupText>
-                                            <img src={eye}
-                                                className="show-pass-icon"
-                                                onClick={()=>{this.setState({showPass:!this.state.showPass})}}
-                                             ></img>
-                                        </InputGroupText>
-                                    </InputGroupAddon>
-                                </InputGroup>
-                            </AvGroup>
-                            <AvGroup>
-                                <Label for="pass"
-                                    style={
-                                        {color: "black"}
-                                }>Confirm Password</Label>
-                                <InputGroup>
-                                    <AvInput 
-                                    type={this.state.showConfirm===true?"text":"password"}
-                                        name="confirm"
-                                        placeholder="Confirm your password"
-                                        required
-                                        onKeyPress={(key)=>{
-                                            if(key.key==="Enter")
-                                            {
-                                                this.SubmitRegisterRequest();
-                                            }
-                                }}/>
-                                    <InputGroupAddon addonType="append">
-                                        <InputGroupText>
-                                            <img src={eye}
-                                                className="show-pass-icon"
-                                                onClick={()=>{this.setState({showConfirm:!this.state.showConfirm})}}
-                                              ></img>
-                                        </InputGroupText>
-                                    </InputGroupAddon>
-                                </InputGroup>
-                            </AvGroup>
-                                {this.state.replaceSubmit?<div><Spinner type="grow" color="dark" /></div>:<Button outline color="primary"
-                            onClick={this.SubmitRegisterRequest}
-                               >Register</Button>}
-                            
-                        </AvForm>
-                    </div>
-                </div>
-            </Col>
-            <Col></Col>
-        </Row>
-        </div>
-
-        )
-    }
-
+}
+isValidEmailAddress = ()=> {
+    return !! this.state.email.match(/.+@.+/);
+}
+SubmitRegisterRequest=()=>{
+let errFlag = 0;
+if(this.state.email.length === 0 ){
+    errFlag=1;
+    this.setState({emailErr:"Email is empty"})
+}else if (!this.isValidEmailAddress()){
+        errFlag=1;
+        this.setState({emailErr:"Input provided is not email type"})
+}
+if(this.state.username.length === 0 ){
+    errFlag=1;
+    this.setState({usernameErr:"Username is empty"})
+}
+if(this.state.password.length === 0 ){
+    errFlag=1;
+    this.setState({passwordErr:"Password field is empty"})
+}
+if(this.state.password !== this.state.confirm){
+    errFlag=1;
+    this.setState({confirmErr:"Passwords do not match"})
+}
+if(this.state.country.length === 0){
+    errFlag=1;
+    this.setState({countryErr:"Don't leave empty"})
+}
+if(this.state.region.length === 0){
+    errFlag=1;
+    this.setState({regionErr:"Don't leave empty"})
 }
 
 
+if(errFlag){return;}
+
+this.setState({replaceSubmit:true});
+let url = api.backaddr + '/signup'
+let options = {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache"
+    },
+    body: JSON.stringify(
+        {email: this.state.email.toString(),
+         password: this.state.password.toString(),
+         confirm: this.state.confirm.toString(),
+         username: this.state.username.toString()}
+    )
+};
+fetch(url, options).then(response=>response.json()).then(response=>{
+
+    if(response.ok === 1){
+        window.location.assign('/login')
+    }else {
+        this.setState({replaceSubmit:false});
+        if(response.type === "username"){
+            this.setState({usernameErr:"Username invalid or already taken"})
+        }
+        if(response.type === "email"){
+            this.setState({emailErr:"Email invalid or already taken"})
+        }
 
 
+    }
 
 
+})
 
+
+}
+
+render(){
+    return(
+        <div className="register-background">
+              <Row className="p-1">
+                    <Col><p className={"text-header1"}>Are your ready? Register now! </p></Col>
+                </Row>
+            <Container style={{minHeight:'80vh'}}>
+              
+                <Row style={{minHeight:'inherit'}} className="">
+              
+                    <Col md="12" lg="6" className="d-flex justify-content-center" style={{verticalAlign:'center', padding:'20px'}}>
+                        <Row className="align-self-center">
+                            <Col sm="12" md="12" lg="12">
+                        <img src={ctGuardLogo} className="align-self-center" style={{width:'256px', height:'256px', marginTop:'auto', marginBottom:'auto'}}></img> 
+                        </Col>
+                      
+                            <Col sm="12" md="12" lg="12">
+                            <p className="text-header1">ctGuard</p>
+                            </Col>
+                        </Row>
+                        </Col>
+
+                    <Col md="12" lg="6" style={{padding:'20px'}}  className="d-flex justify-content-center">
+        <div className="align-self-center register-component" style={{}}>
+        
+            <Row><Col className="m-1 m-xs-1 m-sm-1 m-md-1 m-lg-0" xs="12" sm="12" md="12" lg="6" xl="6">
+           
+                                                <TextField
+                                                
+                                  inputProps={{ maxLength: 50 }}
+                    style={{width:'inherit'}}
+                    error={this.state.emailErr}
+                    className="outlined-error-helper-text"
+                    label="Email"
+                    placeholder="Type your email"
+                    helperText={this.state.emailErr.length>0?this.state.emailErr:""}
+                    variant="outlined"
+                    onChange={(evt)=>{this.setState({email:evt.target.value, emailErr:""})}}
+                    onKeyPress={(evt)=>{
+                        if(evt.key === "Enter"){this.SubmitRegisterRequest()}
+                    }}
+                                />
+                              </Col> 
+                              
+                              <Col className="m-xs-1 m-sm-1 m-md-1 m-lg-0" xs="12" sm="12" md="12" lg="6" xl="6">
+                                  <TextField
+                                  style={{width:'inherit'}}
+                                  inputProps={{ maxLength: 15 }}
+                    error={this.state.usernameErr}
+                    className="outlined-error-helper-text"
+                    label="Username"
+                    maxLength="25"
+                    placeholder="Choose an username"
+                    helperText={this.state.usernameErr.length>0?this.state.usernameErr:""}
+                    variant="outlined"
+                    onChange={(evt)=>{this.setState({username:evt.target.value, usernameErr:""})}}
+                    onKeyPress={(evt)=>{
+                        if(evt.key === "Enter"){this.SubmitRegisterRequest()}
+                    }}
+                                />
+                                </Col>
+            </Row>
+            
+            <br></br>
+            <Row><Col  className="m-xs-1 m-sm-1 m-md-1 m-lg-0" xs="12" sm="12" md="12" lg="6" xl="6">
+            
+            <FormControl  
+             style={{width:'inherit'}}
+            variant="outlined" helperText={this.state.passwordErr.length>0?this.state.passwordErr:""}>
+          <InputLabel htmlFor="outlined-adornment-password">Password</InputLabel>
+                                                <OutlinedInput
+                                                
+                                  inputProps={{ maxLength: 25 }}
+                                                style={{width:'inherit'}}
+                    error={this.state.passwordErr}
+                    type={this.state.showPass?"text":"password"}
+                    className="outlined-error-helper-text  outlined-adornment-password"
+                    label="Password"
+                    placeholder="Choose a password"
+                    maxLength="25"
+                    variant="outlined"
+                    onChange={(evt)=>{this.setState({password:evt.target.value, passwordErr:""})}}
+                    onKeyPress={(evt)=>{
+                        if(evt.key === "Enter"){this.SubmitRegisterRequest()}
+                    }}
+                    endAdornment={
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label="toggle password visibility"
+                            onClick={()=>{this.setState({showPass:!this.state.showPass})}}
+                            onMouseDown={()=>{this.setState({showPass:!this.state.showPass})}}
+                            edge="end"
+                          >
+                            {this.state.showPass ? <Visibility /> : <VisibilityOff />}
+                          </IconButton>
+                        </InputAdornment>
+                      }
+                      labelWidth={70}
+
+                            />
+                                </FormControl>
+                              </Col><Col  className="m-xs-1 m-sm-1 m-md-1 m-lg-0" xs="12" sm="12" md="12" lg="6" xl="6">
+                                  <TextField
+                                  style={{width:'inherit'}}
+                                  type="password"
+                    error={this.state.confirmErr}
+                    maxLength="25"
+                    className="outlined-error-helper-text"
+                    label="Confirm your password"
+                    placeholder="Re-type your password"
+                    helperText={this.state.confirmErr.length>0?this.state.confirmErr:""}
+                    variant="outlined"
+                    onChange={(evt)=>{this.setState({confirm:evt.target.value, confirmErr:""})}}
+                    onKeyPress={(evt)=>{
+                        if(evt.key === "Enter"){this.SubmitRegisterRequest()}
+                    }}
+                                />
+                               </Col>
+
+            </Row>
+            <br></br>
+            <Row>
+                <Col xs="12" sm="12" md="12" lg="12" xl="12"  className="m-xs-1 m-sm-1 m-md-1 m-lg-0">
+          
+<Autocomplete
+
+  className="combo-box-demo"
+  options={countries}
+  getOptionLabel={(option) => option.title}
+  onInputChange={(_, val) => {
+    this.setState({country:val, countryErr:""});
+   }}
+  renderInput={(params) => <TextField {...params} label="Country" variant="outlined"
+  className="outlined-error-helper-text"
+  onKeyPress={()=>{this.setState({countryErr:""})}}
+  error={this.state.countryErr}
+  helperText={this.state.countryErr.length>0?this.state.countryErr:""}
+  />}
+/>
+<br></br>
+                </Col>
+           
+            
+           
+           
+                <Col xs="12" sm="12" md="12" lg="12" xl="12"  className="m-xs-1 m-sm-1 m-md-1 m-lg-0">
+               
+<Autocomplete
+    disabled={this.state.country.length>0?false:true}
+  className="combo-box-demo outlined-error-helper-text"
+  error={this.state.regionErr}
+  helperText={this.state.regionErr.length>0?this.state.regionErr:""}
+  options={region}
+  autoHighlight={true}
+  blurOnSelect={true}
+  clearOnBlur={true}
+  required={true}
+  onInputChange={(_, val) => {
+    this.setState({region:val, regionErr:""});
+   }}
+  getOptionLabel={(option) => option.title}
+  renderInput={(params) => <TextField {...params} label="Region" variant="outlined"
+  className="outlined-error-helper-text"
+  onKeyPress={()=>{this.setState({regionErr:""})}}
+  error={this.state.regionErr}
+  helperText={this.state.regionErr.length>0?this.state.regionErr:""}
+  />}
+/>
+                </Col>
+            </Row>
+            <br></br>
+            {this.state.replaceSubmit && <Spinner/>}
+{!this.state.replaceSubmit &&
+<Button variant="outlined" color="primary" style={{outline:'none', width:'80%'}} onClick={this.SubmitRegisterRequest}>
+  Register!
+</Button>}
+<div style={{marginTop:'10px',outline:'none', width:'inherit'}}><LogInWithFacebook/></div>
+<div>
+ 
+   <div><span> Do you have an account already? <a href="/login">Log In!</a> </span></div>
+</div>
+        </div>
+
+                    </Col>
+                </Row>
+            </Container>
+            <Footer/>
+        </div>
+    )
+}
+
+
+}
 
 
 

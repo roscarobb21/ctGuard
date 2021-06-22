@@ -1,59 +1,199 @@
-import React from 'react';
+import React, {useState, useEffect} from 'react';
 
 import NavBar from '../NavBar/Navbar';
+
 import {Container, Row, Col, Spinner} from 'reactstrap';
 import {FormGroup, Label, Input, Button} from 'reactstrap';
-import {Modal, ModalBody, ModalFooter, ModalHeader} from 'reactstrap';
 import { Media } from 'reactstrap';
 import Carousel, {consts} from 'react-elastic-carousel';
 import pop from '../../assets/pop.mp3';
 import unPop from '../../assets/unPop.mp3';
-import ReactPlayer from 'react-player';
+import Notification from '../../assets/notification.wav';
+
+import followSound from '../../assets/followSound.wav';
+
+import { Badge } from 'reactstrap';
+import ExpandCollapse from 'react-expand-collapse';
 import api from '../../constants/api';
+import Divider from '@material-ui/core/Divider';
+import Blink from 'react-blink-text';
 
+import { InView } from 'react-intersection-observer';
 
+import Video from 'react-responsive-video';
+import Skeleton from 'react-loading-skeleton';
+import PageProgress from 'react-page-progress';
 /**
  * upvote svg
  */
-import upNone from '../../assets/upNone.svg';
-import upDone from '../../assets/upDone.svg';
+import upNone from '../../assets/upNone.png';
+import upDone from '../../assets/upDone.png';
 /**
  * follow svg
  */
-import starNone from '../../assets/starNone.svg';
-import starDone from '../../assets/starDone.svg';
-import './General.css';
+import starNone from '../../assets/starNone.png';
+import starDone from '../../assets/starDone.png';
 
+
+import bellDone from '../../assets/bellDone.svg';
+import bellNone from '../../assets/bellNone.svg';
+
+
+import expandPng from '../../assets/expand.png';
+import postComment from '../../assets/arrow.png';
+import PlaceImg from '../../assets/global.png';
+import './General.css';
+import './PostPage.css';
+import { KeyboardReturnRounded, ThreeSixtyTwoTone } from '@material-ui/icons';
+
+
+import { makeStyles } from '@material-ui/core/styles';
+import Dialog from '@material-ui/core/Dialog';
+import ListItemText from '@material-ui/core/ListItemText';
+import ListItem from '@material-ui/core/ListItem';
+import List from '@material-ui/core/List';
+//import Divider from '@material-ui/core/Divider';
+import AppBar from '@material-ui/core/AppBar';
+import Toolbar from '@material-ui/core/Toolbar';
+import IconButton from '@material-ui/core/IconButton';
+import Typography from '@material-ui/core/Typography';
+import CloseIcon from '@material-ui/icons/Close';
+import Slide from '@material-ui/core/Slide';
+
+import LargeMedia from '../LargeMediaViewer/LargeMediaViewer'
+import ctLogo from '../../assets/security.png';
+
+const io = require("socket.io-client");
 /**
  * TODO
  * Upvotes and follow buttons ;
  * Upvotes and follow numbers ;
  * onClick for both.
  */
+
+
+
+
 class PostPage extends React.Component{
-    constructor(props){
-        super(props)
-        this.state={
-            user:null,
-                id:null,
-                post:null,
-                up:null,
-                follow:null,
-                err:null, 
-                subscribe:null,
-                bigSlide:false,
-                bigSlideIndex:null,
-        }
-    }
-    componentWillMount(){
-        let path = window.location.pathname;
-        let id = path.split('/')[2]
+constructor(props){
+super(props)
+this.state={
+    myID:null,
+    myAvatarUrl:null,
+    err:"",
+    postBodyExpand:false,
+    loading:true,
+    id:null,
+    post:null,
+    up: null,
+    follow: null,
+    subscribe:null,
+    comment:"",
+    commentArray:[],
+    latestCommentArrived:false,
+    showCommentSpinner:false,
+    fetchNewCommButton:false,
+    showFetchNewResponse:false,
+    authResponse:null,
+    followNum:null,
+    upVotesNum:null,
+    showDialog:false,
+    dialogId:null,
+    expandBtn:false,
+    exapandId:null,
+    color:"black"
+}
+
+}
+//get notification if someone posted a comment while you are viewing the page
+//implementation on component did mount
+socket = io(api.backaddr);
+
+getMyID = ()=>{
+    let url=api.backaddr + api.authUser + api.routes.myID;
+    let options = {
+       method: "GET",
+       headers: {
+           "Content-Type": "application/json",
+           "Cache-Control": "no-cache, no-store, must-revalidate",
+           Pragma: "no-cache",
+           token: localStorage.getItem("token").toString()
+       }
+   };
+   fetch(url, options).then(response=>response.json()).then(response=>{
+       if(response.ok === 1){
+           this.setState({myID:response.myID, myAvatarUrl:response.avatarUrl})
+       }
+   })
+
+}
+getRandomArbitrary(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+
+postBodyTextExpandOrCollapse = ()=>{
+const textLength = this.state.post.body.length;
+
+//let lengthDrop = this.getRandomArbitrary(300, 500);
+if(textLength >= 500 && this.state.postBodyExpand){
+    return(<div  className="post-body-expand" style={{}}>
+        <span>{this.state.post.body}</span>
+        &nbsp;
+        <span style={{color:'blue'}} className="change-cursor" onClick={()=>{this.setState({postBodyExpand:false})}}>Read less</span>
+    </div>)
+
+}
+if(textLength >= 500 && !this.state.postBodyExpand){
+   return (<div className="post-body-expand" style={{}}>
+        <span>{this.state.post.body.substring(0, 500)}...</span>
+        &nbsp;
+        <span style={{color:'blue'}} className="change-cursor" onClick={()=>{this.setState({postBodyExpand:true})}}>Read more</span>
+    </div>)
+    
+}
+
+return(<span>{this.state.post.body}</span>)
+}
+
+componentWillMount(){
+    /**
+     * Get the post id from url
+     */
+     const id = this.props.match.params.id;
+ 
         if(id !== undefined && id !== null){
+            console.log("ID IS : ", id)
                 this.setState({id:id})
         }
+}
+componentWillUnmount() {
+    document.removeEventListener('scroll', this.trackCommentScrolling);
+  }
+
+componentDidMount(){
+    document.addEventListener('scroll', this.trackCommentScrolling);
+  
+    this.socket.emit('post_connection', this.state.id);
+    this.socket.on('specific_post_auth_response', (resp)=>{
+        let audio = new Audio(Notification);
+        audio.play()
+        this.setState({showFetchNewResponse:true})
+    })
+    this.socket.emit('post_view', this.state.id);
+    this.socket.on("new", (fromId)=>{
+        //altcineva inafara de mine a postat
+        if(fromId !== this.state.myID){
+            let audio = new Audio(Notification);
+            audio.play()
+            this.setState({fetchNewCommButton:true})
         }
-    async componentDidMount(){
-            let url=api+'/api/specificPost?id='+this.state.id
+    })
+
+    /**
+     * Fetch post data
+     */
+    this.getMyID();
+    let url=api.backaddr+'/api/specificPost?id='+this.state.id
              let options = {
                 method: "GET",
                 headers: {
@@ -63,361 +203,735 @@ class PostPage extends React.Component{
                     token: localStorage.getItem("token").toString()
                 }
             };
-            let responseRaw = await fetch(url, options);
-            let response = await responseRaw.json();
-            console.log('response is ', response)
-            if(response.ok === 0){
-                this.setState({err:response.err})
-                return
-            }
-            this.setState({post:response.post, user: response.user, subscribe:response.subscribe, up:response.up, follow:response.follow})
-        }
-        
-        myArrow({ type, onClick, isEdge }) {
-            const pointer = type === consts.PREV ? '👈' : '👉'
-            return (
-              <Button style={{backgroundColor:'transparent', border:0}} onClick={onClick} disabled={isEdge}>
-                {pointer}
-              </Button>
-            )
-          }
-          openBigSlide=()=>{
-
-          }
-        showMedia=()=>{
-            /**
-             * Generate post media
-             */
-            let mediaShow= (media)=>{
-                return media.map(element=>{
-                    return(
-                        <img style={{width:'100%', height:'100%', padding:this.state.bigSlide?'20px':0}} src={element} onClick={()=>{this.setState({bigSlide:true, bigSlideIndex:1})}} ></img>
-                    )
-                })
-            }
-                          return(
-                          <div ><Carousel
-                            itemsToShow={1}
-                            renderArrow={this.myArrow}
-                            easing="cubic-bezier(1,.15,.55,1.54)"
-                            tiltEasing="cubic-bezier(0.110, 1, 1.000, 0.210)"
-                            transitionMs={500}
-                            >
-                            {mediaShow(this.state.post.media)}
-                          </Carousel>
-                          </div>)
-        }
-        /**
-         * Generates comments list under authorities response
-         */
-        generateCommentList=()=>{
-            if(this.state.post !== null && this.state.post.comments.length >0 ){
-                /**
-                 * if comments found, map every comment to a media element
-                 */
-                let ordComm = this.state.post.comments.reverse();
-            return ordComm.map(element=>{
-                return(
-                    <div style={{marginTop:'1vh'}}>
-                    <Media>
-                    <Media left href="#">
-                      <Media object src={element.avatarUrl} style={{width:'64px', height:'64px', borderRadius:'50%'}} alt="Avatar" />
-                    </Media>
-                    <Media body>
-                      <Media heading className="change-cursor">
-                         @{element.postedBy}
-                      </Media>
-                      {element.body}
-                    </Media>
-                  </Media>
-                  </div>
-                )
-
-            })
-        
-        
-        }
-
-              /**
-               * No comments found
-               */
-              return(<div>
-                  <p>This post has no comments. Be first to comment it.</p>
-              </div>)
-        }
-        postComment=()=>{
-            if(document.getElementById('text-area').value.toString()===""){
-                alert('Please fill in the comment area')
-                return
-            }
-            if(this.state.post!== null){
-                console.log('why ', document.getElementById('text-area'))
-                let comm = document.getElementById('text-area').value.toString()
-                let url = api+'/api/comment';
-                let options = {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Cache-Control": "no-cache, no-store, must-revalidate",
-                        Pragma: "no-cache",
-                        token: localStorage.getItem("token").toString()
-                    },
-                    body: JSON.stringify({
-                        body:comm,
-                        postID:this.state.post._id,
-                    })
-                }; 
-                fetch(url, options).then(response=>response.json()).then(response=>{
-                   
-                })
-                let newPost = this.state.post;
-                let obj = {}
-                obj.postId=this.state.post._id.toString();
-                obj.postedBy = this.state.user._id.toString();
-                obj.avatarUrl= this.state.user.avatarUrl;
-                obj.body= document.getElementById('text-area').value.toString();
-                obj.postDate= Date.now();
-                newPost.comments.push(obj)
-                this.setState({post:newPost})
-                document.getElementById('text-area').value=""
-              
-            }
-        }
-        subscribeToPost=()=>{
-            let url = api+'/api/subscribe?id='+this.state.post._id.toString();
-            let options = {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Cache-Control": "no-cache, no-store, must-revalidate",
-                    Pragma: "no-cache",
-                    token: localStorage.getItem("token").toString()
-                }
-            }; 
             fetch(url, options).then(response=>response.json()).then(response=>{
-                console.log('Sub response : ', response)
-            })
-            this.setState({subscribe:!this.state.subscribe})
-        }
-        upClick= async()=>{
-            //fetch up method
-            //upvoted or unupvote
-            //increment or decrement number
-            if(this.state.up!== null && this.state.up !== undefined){
-                let url= api + '/api/up?id='+this.state.post._id.toString();
-                let options = {
-                  method: "POST",
-                  headers: {
-                      "Content-Type": "application/json",
-                      "Cache-Control": "no-cache, no-store, must-revalidate",
-                      Pragma: "no-cache",
-                      token: localStorage.getItem("token").toString()
-                  }
-              };
-              fetch(url, options)
-        
-            let newPost = this.state.post;
-            newPost.upVotes = parseInt(this.state.post.upVotes) + (this.state.up?(-1):(1));
-            this.setState({up:!this.state.up, post:newPost})
-            }
-        }
+                let color;
+                switch(response.post.category){
+                    case "Incident":
+                        color = "#ff2e63";
+                        break;
+                    case "Request":
+                        color = "#00adb5";
+                        break;
+                    default:
+                        color = "black";
+                        break;
+                }
+               if(response.ok === 1){
+                  // this.setState({loading:true})
+                
+                this.setState({color:color, loading:false, post:response.post, authResponse:response.post.authoritiesResponse, up:response.up, follow:response.follow, subscribe:response.subscribe, commentArray:response.post.comments, followNum:response.followNum, upVotesNum:response.upVotesNum})
 
-        followClick=()=>{
-            //fetch follow method
-            //follow or unfollow
-            //increment or decrement number
-            if(this.state.follow!== null && this.state.follow !== undefined){
-                let url= api + '/api/follow?id='+this.state.post._id.toString();
-                let options = {
-                  method: "POST",
-                  headers: {
-                      "Content-Type": "application/json",
-                      "Cache-Control": "no-cache, no-store, must-revalidate",
-                      Pragma: "no-cache",
-                      token: localStorage.getItem("token").toString()
-                  }
-              };
-              fetch(url, options).catch(err=>{
-                  console.error("---ctGuard custom error--- : ", err.toString())
-              })
-            let newPost = this.state.post;
-            newPost.followers = parseInt(this.state.post.followers) + (this.state.follow?(-1):(1));
-            this.setState({follow:!this.state.follow, post:newPost})
-            }
-        }
-        generateAuthoritiesResponse=()=>{
-            if(this.state.post.authoritiesResponse.length>0){
-                let desc = this.state.post.authoritiesResponse.reverse()
-                return desc.map(element=>{
-                    return(
-                        <div style={{border:'solid', borderColor:'black', borderWidth:'1px', marginTop:'10px'}}>
-                        <Media >
-                        <Media left href="#">
-                         </Media>
-                        <Media body style={{textAlign:'justify'}}>
-                          <Media heading>
-                              {element.postDate}
-                          </Media>
-                          <textarea value={element.body} disabled style={{width:'100%', backgroundColor:'white'}}></textarea>
-                        </Media>
-                        <Media body>
-                            <span style={{backgroundColor:'white'}}>
-                                {element.previousStatus}&nbsp;->&nbsp;{element.currentStatus}
-                            </span>
-                        </Media>
-                      </Media>
-                      </div>
-                    )
-                })
-            }
-            return("Authorities didn't provide a response yet")
-        }
-        handleBigSlide=()=>{
-            this.setState({bigSlide:!this.state.bigSlide})
-        }
-      
-    render(){
-        console.log('this.state.post ', this.state.post)
-        /**
-         * If server error, write on screen error message
-         */
-        if(this.state.err !== null){
-            return(<div>
-                <NavBar />
-                <div>
-                    <Container>
-                        <Row>
-                            <Col>
-                    <p className="text-header1" style={{marginTop:'20vh'}}>Resource not found: </p>
-                    <p>{this.state.err}</p>
-                    <p className="text-header1">Sorry for inconvenience</p>
-                    
-                    <p className="text-header1">:(</p>
-                        </Col>
-                        </Row>
-                        </Container>
-                </div>
-            </div>)
-        }
-        /**
-         * If post fetched ok: display post page
-         */
-        if(this.state.post!== null && this.state.post !== "" && this.state.post !== []){
-            console.log('the info I have ', this.state.post)
-        
-        return(<div>
-             <div>
-                    
-                <Modal 
-                size="lg" style={{maxWidth: '1600px', width: '80%', height:'1000px', maxHeight:'1200px'}} isOpen={
-                            this.state.bigSlide
-                        }
-                        toggle={
-                            this.handleBigSlide
-                    }>
-                        <ModalHeader toggle={
-                            this.handleBigSlide
-                        }>
-                        </ModalHeader>
-                        <ModalBody>
-                    <div className="" style={{height:'80vh'}}>
-                        {this.showMedia()}
-                    </div>
-                        </ModalBody>
-                    </Modal>
-                </div>
-            <div>
-                <NavBar/>
+               }else {
+                this.setState({loading:false,err:response.err })
+               }
+            })
+}
+
+
+imageItem = (med)=>{
+    let path = api.cdn+ api.postMedia.p720+med
+    return(
+        <div className="" style={{background:'url('+path+')',backgroundSize: 'cover',backgroundPosition: 'center center',
+        backgroundRepeat: 'no-repeat', minHeight:'500px', minWidth:'100%'}} 
+        onMouseEnter={()=>{
+            //displayExpand
+            this.setState({expandBtn:true})
+        }}
+        onMouseLeave={()=>{
+            this.setState({expandBtn:false})
+            //hide Expand
+        }}>  
+            <div className="expand-button" style={{display:this.state.expandBtn?'block':'none',left:20, transition:'opacity 1s ease'}}>
+              <img style={{width:'48px', height:'48px', marginLeft:'20px', marginTop:'30px'}} src={expandPng} className="float-left change-cursor" title="Expand Media" onClick={()=>{
+                  let id ;
+                  this.state.post.media.forEach((element, i ) => {
+                      if(element === med ){
+                          id=i;
+                      }
+                  });
+                  
+                  this.setState({showDialog:true, dialogId:med, expandId:id})
+                  
+                  }}></img>
             </div>
-            <Container style={{background:'#eaeaea'}}>
-                <Row>
-                    <Col>
-                    <p className="text-header1">{this.state.post.header}  ::{this.state.post.category}</p></Col>
-                </Row>
-                <Row style={{marginTop:'2vh'}}>
-                    <Col >
-                        <div className="" >
-                    {this.state.post && this.showMedia()}
+        </div>
+    )
+}
+
+videoItem = (med, inView)=>{
+    let path = api.cdn+ api.postMedia.p720+med
+    return(
+        <div id="cauta" className="" 
+        onMouseEnter={()=>{
+            //displayExpand
+            this.setState({expandBtn:true})
+        }}
+        onMouseLeave={()=>{
+            this.setState({expandBtn:false})
+            //hide Expand
+        }}
+        style={{display:'flex',alignItems:'center',minHeight:'500px', minWidth:'100%', backgroundColor:'#303030'}}>
+            <div style={{position:'relative'}}>
+             <div className="expand-button" style={{display:this.state.expandBtn?'block':'none', position:'absolute', top:0, left:20, zIndex:'1000'}}>
+              <img style={{width:'48px', height:'48px', marginRight:'30px', marginTop:'30px', zIndex:999}} src={expandPng} className="float-right change-cursor" title="Expand Media" onClick={()=>{
+                     let id ;
+                     this.state.post.media.forEach((element, i ) => {
+                         if(element === med ){
+                             id=i;
+                         }
+                     });
+                  
+                  this.setState({showDialog:true, dialogId:med, expandId:id})}}></img>
+            </div>
+        <Video
+        style={{maxHeight:'500px'}}
+        controls
+        autoplay={inView}
+        muted={true}
+        mp4={path}
+        width={'100%'}
+        height={'100%'}
+        objectFit={`contain`}
+        alt="Video Loading"
+        />
+   </div>
+   </div>
+    )
+}
+
+
+
+
+mediaMap = (media, inView)=>{
+
+    return media.map(element=>{
+        if(element.split('.')[1]==='mp4'){
+            //return video item
+           return(this.videoItem(element))
+        }else {
+            //return img item
+            return(this.imageItem(element))
+        }
+    })
+
+}
+
+generatePostCarousel = (media, inView)=>{
+    if(media.length === 0){
+        return(<div><span>This post has no media attached</span></div>)
+    }
+    return(
+    <Carousel
+        itemsToShow={1}
+        showArrows={media.length===1?true:true}
+        disableArrowsOnEnd={false}
+        showArrows={true}
+        enableMouseSwipe={false}>
+            { 
+            this.mediaMap(media, inView)
+            }
+        </Carousel>
+    )
+}
+
+
+/**
+ * Authorities Response section
+ * 
+ */
+
+generateAuthoritiesResponse = ()=>{
+    if(this.state.authResponse.length === 0){
+        return (
+            <div>
+                <p>Authorities didn't provide a response yet</p>
+                </div>
+        )
+    }
+    let authoritiesReverse = this.state.authResponse.reverse();
+    return authoritiesReverse.map((element, i)=>{
+        return(
+            <div>
+                {this.AuthoritiesResponseBubble(element)}
+            </div>
+        )
+    })
+
+}
+
+AuthoritiesResponseBubble = (element, i)=>{
+
+    return(
+        <div style={{marginTop:i===0?'0px':'25px'}}>
+             <Media className="mt-1">
+                            <Media left middle href={"/user/"+element.postedBy}> 
+                                <img style={{width:'64px', height:'64px', borderRadius:'50%'}} src={api.cdn+api.avatarMedia.p128+element.avatarUrl} alt={element.postedByUsername}></img>
+                            </Media>
+                            <Media body>
+                            <Media heading >
+                                <a href={"/user/"+element.postedBy}><p style={{textAlign:'justify'}} > <Badge color="secondary">@{element.postedByUsername}</Badge></p>  </a> 
+                                
+                            </Media>
+                                <div style={{textAlign:'justify'}}><span>{element.body}</span></div>
+                                <small className="text-muted float-left" ><span>Status change : {element.previousStatus}-> {element.currentStatus}</span></small>
+                                <br></br>
+                                <small className="text-muted float-left" ><span>{element.postDate}</span></small>
+                            </Media>
+                        </Media>
+                    <Divider/>
+            </div>
+    )
+
+}
+
+
+reloadAuthResponse=()=>{
+    let url = api.backaddr + api.authUser + '/reloadAuth?id='+this.state.id 
+    let options = {
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+            token: localStorage.getItem("token").toString()
+        }
+    };
+   fetch(url, options).then(response=>response.json()).then(response=>{
+       this.setState({authResponse:response.auth, showFetchNewResponse:false})
+   })
+}
+
+
+/**
+ * 
+ * Comments section
+ */
+
+/**
+ * reFetch comments for pagination :
+ * provide the latest comment id !
+ */
+
+refetchComments = (latestId)=>{
+    if(this.state.latestCommentArrived!==true){
+        this.setState({latestCommentArrived:true})
+        let url=api.backaddr+api.authUser+api.routes.recomment+"?pid="+this.state.id+"&lcid="+latestId;
+        let options = {
+           method: "GET",
+           headers: {
+               "Content-Type": "application/json",
+               "Cache-Control": "no-cache, no-store, must-revalidate",
+               Pragma: "no-cache",
+               token: localStorage.getItem("token").toString()
+           }
+       };
+       fetch(url, options).then(response=>response.json()).then(response=>{
+           if(response.ok === 1){
+               if(response.bottom){
+                let oldComm = this.state.commentArray;
+                let newComm = response.newComments;
+                let updateComm = oldComm.concat(newComm)
+                this.setState({commentArray:updateComm,latestCommentArrived:response.bottom })
+                return
+               }
+                if(response.newComments.length === 0 ){
+                    //replace loading with bottom
+                }else {
+                    let oldComm = this.state.commentArray;
+                    let newComm = response.newComments;
+                    let updateComm = oldComm.concat(newComm)
+                    this.setState({commentArray:updateComm,latestCommentArrived:false})
+
+                }
+           }
+       })
+    }
+
+}
+
+ commentSubscribe=()=>{
+     
+    let audio = new Audio(followSound)
+     audio.play();
+    this.setState({subscribe:!this.state.subscribe})
+    let url=api.backaddr+api.authUser+api.routes.subscribe+this.state.id;
+    let options = {
+       method: "POST",
+       headers: {
+           "Content-Type": "application/json",
+           "Cache-Control": "no-cache, no-store, must-revalidate",
+           Pragma: "no-cache",
+           token: localStorage.getItem("token").toString()
+       }
+   };
+   fetch(url, options);
+ }
+
+ /**
+  * 
+  * @returns POST NEW COMMENT
+  */
+commentPost = ()=>{
+    if(this.state.comment.length === 0){ return; }
+    let url=api.backaddr+api.authUser+api.routes.postComment;
+  
+    let obj = {}
+            obj.postId=this.state.post._id;
+            obj.body= this.state.comment;
+            
+    let options = {
+       method: "POST",
+       headers: {
+           "Content-Type": "application/json",
+           "Cache-Control": "no-cache, no-store, must-revalidate",
+           Pragma: "no-cache",
+           token: localStorage.getItem("token").toString()
+       },
+       body:JSON.stringify({
+           postID:this.state.post._id,
+           body: this.state.comment
+       }),
+   };
+   document.getElementById("commentTextArea").value = "";
+   let audio = new Audio(pop)
+   audio.play();
+   fetch(url, options).then(response=>response.json()).then(response=>{
+       if(response.ok === 1){
+           this.setState({commentArray:response.newArray})
+       }
+   })
+   obj.postDate= Date.now();
+}
+
+
+/**
+ * Generates comment bubbles
+ * 
+ *    <InView>
+                     {({ inView, ref, entry }) => (
+                 <div ref={ref} style={{padding:''}}>
+                                {this.generatePostCarousel(this.state.media, inView)}
+                                 </div>
+                      )}
+                         </InView>
+ */
+generateCommentBubble = (comment, i)=>{
+
+
+  if(this.state.commentArray.length === (i+1) && !this.state.latestCommentArrived){
+      //latest Element
+      //inset ref to latest element to re-fetch if in view
+      return(
+        <InView>
+        {({ inView, ref, entry }) => {      
+            if(inView){this.refetchComments(comment._id)}
+            return(      
+    <div ref={ref} className="comment-bubble">
+                        <Media className="mt-1">
+                            <Media left middle href={"/user/"+comment.postedBy}> 
+                                <img style={{width:'64px', height:'64px', borderRadius:'50%'}} src={api.cdn+api.avatarMedia.p128+comment.avatarUrl} alt={comment.postedByUsername}></img>
+                            </Media>
+                            <Media body>
+                            <Media heading >
+                                <a href={"/user/"+comment.postedBy}><p style={{textAlign:'justify'}} > <Badge color="secondary">@{comment.postedByUsername}</Badge></p> </a> 
+                            </Media>
+                                <p style={{textAlign:'justify'}}>{comment.body}</p>
+                                <small className="text-muted float-left" >{comment.postDate}</small>
+                            </Media>
+                        </Media>
+                    <Divider/>
+      <br></br>
+      {this.state.latestCommentArrived?<Spinner/>:null}
                     </div>
-                    </Col>
-                    <Col className="">
-                <p className="change-cursor" style={{marginTop:'20%'}} onClick={()=>{
-                    window.location.assign('/user/'+this.state.post.postedBy)
-                }}>Author : @{this.state.post.postedBy}</p>
-                <p style={{color:'#ff2e63'}}>Date posted: {this.state.post.datePosted}</p>
-                <p style={{color:"#08d9d6"}}>Last update on {this.state.post.datePosted}</p>
-                <Row>
-                    <Col>
-                    <div><img className="change-cursor" src={this.state.up?upDone:upNone} onClick={this.upClick}></img><span>{this.state.post.upVotes}</span></div>
-                    </Col>
-                    <Col>
-                    <div><img className="change-cursor" src={this.state.follow?starDone:starNone} onClick={this.followClick}></img><span>{this.state.post.followers}</span></div>
-                    </Col>
-                </Row>
-                </Col>
-                </Row>
-                <Row>
-                    <Col md="12" lg="auto"><p className="text-header1">Description: </p></Col>
-                    <Col></Col>
-                    <Col></Col>
-                </Row>
-                <Row>
-                    <Col>
-                   
-                <p style={{textAlign:'justify'}}>{this.state.post.body}</p>
-                </Col>
-                </Row>
-             
-                <Row>
-                    <Col md="12" lg="auto"><p className="text-header1">Authorities response: </p></Col>
-                    <Col></Col>
-                    <Col></Col>
-                </Row>
-                <Row>
-                    <Col style={{textAlign:'justify', minHeight:'10vh',maxHeight:'20vh', paddingBottom:'1.5vh'}}>
-                    <div style={{height:'100%', overflowY:'scroll', }}>
-                    {this.state.post.authoritiesResponse.length>0 && this.generateAuthoritiesResponse()}
-                    {this.state.post.authoritiesResponse.length===0 && <span className="text-body">Authorities didn't provide a response yet</span>}
-                    </div>
-                    </Col>
-                </Row>
-                <Row>
-                    <Col md="12" lg="auto">
-                    <p className="text-header1">Comments section:</p>
-                    </Col>
-                    <Col></Col>
-                    <Col></Col>
-                </Row>
-                <Row>
-                    <Col>
-                    <FormGroup>
-        <Label for="postCommentBox" className="float-left">Post a comment</Label>
-        <Input type="textarea" name="comment-text-box" id="text-area" placeholder="Insert your comment here and press the Post button to post it..." />
-       
-      </FormGroup>
-      {this.state.subscribe!==null?
-                this.state.subscribe?
-                <Button className="float-left" color="secondary" onClick={this.subscribeToPost}>You are subscribed to comment notifications!</Button>
-                :<Button className="float-left" color="primary" onClick={this.subscribeToPost}>Subscribe to comment notifications</Button>
-                :null}
-      <Button onClick={this.postComment} className="float-right" style={{color:'#08d9d6', marginTop:'1vh'}}>Post!</Button> </Col>
-                </Row>
-                <Row>
-                    <Col className="" style={{textAlign:'justify', maxHeight:'40vh', paddingBottom:'1.5vh', marginTop:'1vh'}}>
-                        <div style={{height:'100%', overflowY:'scroll', }}>
-                 {this.state.post.comments.length >0 && this.generateCommentList()}
-                 {this.state.post.comments.length==0 && <span>This post has no comments yet. Be the first to comment it :)</span>}
+            )}}
+            </InView>
+      )
+  }
+  if(this.state.commentArray.length === (i+1) && this.state.latestCommentArrived){
+return(
+<div className="comment-bubble">
+    <Media className="mt-1">
+        <Media left middle href={"/user/"+comment.postedBy}> 
+            <img style={{width:'64px', height:'64px', borderRadius:'50%'}} src={api.cdn+api.avatarMedia.p128+comment.avatarUrl} alt={comment.postedByUsername}></img>
+        </Media>
+        <Media body>
+          <Media heading >
+              <a href={"/user/"+comment.postedBy}><p style={{textAlign:'justify'}} > <Badge color="secondary">@{comment.postedByUsername}</Badge></p> </a> 
+          </Media>
+         <p style={{textAlign:'justify'}}>{comment.body}</p>
+         <small className="text-muted float-left" >{comment.postDate}</small>
+        </Media>
+      </Media>
+      <Divider/>
+      
+      <br></br>
+      <div><span>You have reached the bottom of comments section</span></div>
+</div>
+)
+}
+
+return(
+    <div className="comment-bubble">
+        <Media className="mt-1">
+            <Media left middle href={"/user/"+comment.postedBy}> 
+                <img style={{width:'64px', height:'64px', borderRadius:'50%'}} src={api.cdn+api.avatarMedia.p128+comment.avatarUrl} alt={comment.postedByUsername}></img>
+            </Media>
+            <Media body>
+              <Media heading >
+                  <a href={"/user/"+comment.postedBy}><p style={{textAlign:'justify'}} > <Badge color="secondary">@{comment.postedByUsername}</Badge></p> </a> 
+              </Media>
+             <p style={{textAlign:'justify'}}>{comment.body}</p>
+             <small className="text-muted float-left" >{comment.postDate}</small>
+            </Media>
+          </Media>
+          <Divider/>
+          <br></br>
+    </div>
+    )
+}
+
+
+generateComments = ()=>{
+if(this.state.commentArray.length === 0 ){
+    return(<div><span>There are no comments on this post, be the first to comment it !</span></div>)
+}
+
+return(this.state.commentArray.map((element, i)=>{
+    return(
+        this.generateCommentBubble(element, i )
+    )
+}))
+}
+clearNotificationsQ=()=>{
+    let url= api.backaddr + api.authUser + api.routes.clearNotificationQ + this.state.id;
+    let options = {
+      method: "POST",
+      headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          token: localStorage.getItem("token").toString()
+      }
+  };
+  fetch(url, options);
+}
+
+loadCommentsPromptfetch = ()=>{
+    //also clear notificationQ for this post
+    
+    let url=api.backaddr+api.authUser+api.routes.appendComment+"?pid="+this.state.id+"&lcid="+this.state.commentArray[0]._id;
+    let options = {
+       method: "GET",
+       headers: {
+           "Content-Type": "application/json",
+           "Cache-Control": "no-cache, no-store, must-revalidate",
+           Pragma: "no-cache",
+           token: localStorage.getItem("token").toString()
+       }
+   };
+   this.clearNotificationsQ();    
+   fetch(url, options).then(response=>response.json()).then(response=>{
+       let oldArr = this.state.commentArray;
+       let newGet = response.newComments;
+       let forUpdate = newGet.concat(oldArr);
+       this.setState({commentArray:forUpdate, fetchNewCommButton:false})
+   })
+
+}
+handleCloseDialog=()=>{
+    this.setState({showDialog:false})
+ }
+
+
+ callbackFunction = (childData) => {
+ console.log("🚀 ~ file: PostPage.jsx ~ line 588 ~ PostPage ~ childData", childData)
+ this.setState({showDialog:childData})
+}
+
+render(){
+    if(this.state.loading){
+        return(<div>
+            <NavBar/>
+            <Container style={{height:'90vh'}}>
+                <Row style={{wdith:'inherit', height:'inherit', marginTop:'30px'}}>
+                    <Col style={{wdith:'inherit', height:'inherit'}} className="d-flex justify-content-center ">
+                        <div className="" style={{width:'inherit'}}>
+                            <PostPageScheleton/>
                         </div>
                     </Col>
                 </Row>
             </Container>
-        </div>)
-        }
-
-        return(<Spinner color="secondary"/>)
+            </div>)
     }
-    
+    /**
+     * Error
+     */
+    if(this.state.post === null){
+        return(<div>
+            <NavBar/>
+            <div>
+                <Container>
+                    <Row>
+                        <Col>
+                       {this.state.loading && <Spinner/>}
+                       {this.state.err.length>0?this.state.err:""}
+                        </Col>
+                    </Row>
+                </Container>
+            </div>
+        </div>)
+    }
+
+/**
+ * Post fetched ok
+ */
+/**
+ * removed minHeight:'80vh' from post-presentation
+ */
+
+let statusColor;
+switch(this.state.post.status){
+    case "New":
+        statusColor="#08d9d6";
+        break;
+    case "In progress...":
+        statusColor="#f9b208";
+        break;
+    case "Solved":
+        statusColor="#00adb5";
+        break;
+    case "Blocked":
+        statusColor="#ff2e63";
+        break;
+    default:
+        statusColor="black";
+        break;
+}
+  
+    return(<div className="background">
+        <NavBar/>
+        <div>
+           <LargeMedia showDialog={this.state.showDialog} expandId={this.state.expandId} parentCallback = {this.callbackFunction} media={this.state.post.media} username={this.state.post.postedByUsername} title={this.state.post.header} country={this.state.post.country} region={this.state.post.region}/>
+            <Container >
+                <Row style={{marginTop:'30px'}}>
+                    <Col >
+                        <div className="post-presentation background-component" style={{ backgroundColor:'white', borderRadius:'20px', width:'100%', padding:'20px'}} > 
+                        <Row>
+                            <Col>
+                                <section>
+                                    <div className={this.state.post.header.length>30?"text-header2":"text-header1"} style={{padding:'25px', wordWrap:'break-word', width:'100%', textAlign:'left'}}>
+                                        {this.state.post.header} ::<span style={{color:this.state.color}}>{this.state.post.category}</span>
+                                        </div>
+                                </section>
+                                <section style={{paddingRight:'20px'}}className="float-right">
+                                    <img src={PlaceImg} style={{width:'32px', height:'32px'}}></img>
+                                    &nbsp;
+                                    <span>{this.state.post.country}</span>,&nbsp;
+                                    <span>{this.state.post.region}</span>
+                                </section>
+                                </Col>
+                                </Row>
+                               <Row style={{marginTop:'10px'}}>
+                                   <Col>
+                                   <div style={{textAlign:'justify', padding:'0px 25px 0px 25px'}}>
+                                  {this.postBodyTextExpandOrCollapse()}
+                                  </div>
+                                   </Col>
+                               </Row>
+                               <Row style={{marginTop:'30px'}}>
+                                   <Col>
+                                   <InView>
+                     {({ inView, ref, entry }) => (
+                 <div ref={ref} style={{padding:'25px'}}>
+                                {this.generatePostCarousel(this.state.post.media, inView)}
+                                 </div>
+                      )}
+                         </InView>
+                                   </Col>
+                               </Row>
+                               <Divider/>
+                              <div style={{padding:'20px'}}>
+                                  <div className="float-left">
+                                 <img style={{width:'32px', height:'32px'}} className="change-cursor" src={this.state.up?upDone:upNone} onClick={()=>{
+                                     let audio = new Audio(this.state.up?unPop:pop);
+                                     audio.play()
+                                     let url = api.backaddr + '/api/up?id=' + this.state.post._id.toString()
+                                     let options = {
+                                         method: "POST",
+                                         headers: {
+                                             "Content-Type": "application/json",
+                                             "Cache-Control": "no-cache, no-store, must-revalidate",
+                                             Pragma: "no-cache",
+                                             token: localStorage.getItem("token").toString()
+                                         }
+                                     };
+                                     
+                                    fetch(url, options);
+                                    let newUpVotesNum = this.state.upVotesNum;
+                                    newUpVotesNum += + this.state.up?(-1):(1)
+                                    this.setState({up:!this.state.up, upVotesNum: newUpVotesNum})
+                                     }}></img>
+                                  
+                                  &nbsp; <span>{this.state.upVotesNum}</span>  &nbsp;  &nbsp;  
+                                  
+                                 <img style={{width:'32px', height:'32px'}} className="change-cursor" src={this.state.follow?starDone:starNone} onClick={()=>{
+
+                                     if(!this.state.follow){
+                                        let audio = new Audio(followSound);
+                                        audio.play()
+                                     }
+                                        let url = api.backaddr + '/api/follow?id=' + this.state.post._id.toString()
+                                        let options = {
+                                            method: "POST",
+                                            headers: {
+                                                "Content-Type": "application/json",
+                                                "Cache-Control": "no-cache, no-store, must-revalidate",
+                                                Pragma: "no-cache",
+                                                token: localStorage.getItem("token").toString()
+                                            }
+                                        };
+                                        fetch(url, options)
+                                        let newFollowNum = this.state.followNum;
+                                        newFollowNum += + this.state.follow?(-1):(1)
+                                     this.setState({follow:!this.state.follow, followNum:newFollowNum})
+                                     
+                                     }}></img> &nbsp;  <span>{this.state.followNum} </span>
+                                
+                                     </div>
+                                     <div className="float-right">
+                                        <small><span><a className="text-color" title={'Link to '+this.state.post.postedByUsername+'\'s profile'}  href={'/user/'+this.state.post.postedBy} className="" >@{this.state.post.postedByUsername}</a></span>&nbsp;<span>{this.state.post.datePosted}</span>&nbsp;<span style={{color:statusColor}}>{this.state.post.status}</span></small>
+                                     </div>
+                              </div>
+
+                        </div>
+                    </Col>
+                </Row>
+                                    <br></br>
+                <Row style={{minHeight:'200px',maxHeight:'450px' }}>
+                        <Col>
+                        <div className="post-presentation background-component" style={{minHeight:'200px',maxHeight:'450px',backgroundColor:'white', borderRadius:'20px', width:'100%', padding:'20px 40px 20px 40px'}} > 
+                        <Row   className="">
+                            <Col style={{minHeight:'200px',maxHeight:'400px'}}>
+                            <p className="text-header1 float-left"><span>Authorities Response</span></p>
+                            <p className="float-left">Latest update on <span style={{color:"#08d9d6"}}>{this.state.post.lastUpdated}</span></p>
+                            </Col>
+                            <Col style={{minHeight:'200px',maxHeight:'400px', overflowY:'scroll'}}>
+                            <div className='' style={{}}>
+                            {this.state.showFetchNewResponse && <div className="change-cursor" onClick={()=>{
+                             this.reloadAuthResponse()
+                            }
+                            }><Blink  color='#08d9d6' text='Authorities posted new response. Reload?' fontSize='40'/></div> } 
+                            {this.generateAuthoritiesResponse()}
+                            </div>
+                            </Col>
+                        </Row>
+                        </div>
+                        </Col>
+                </Row>
+              <br></br>
+                <Row >
+                    <Col>
+                    <div className="post-presentation background-component" style={{ minHeight:'40vh', backgroundColor:'white', borderRadius:'20px', width:'100%', padding:'40px', marginBottom:'20px'}} > 
+                       <Row>
+                           <Col>
+                           
+                           <div className="float-left">
+                        <p className="text-header1">Comments Section</p>
+                        
+                        </div>
+                        </Col>
+                        <Col className="">
+                        <div className="float-right  float-right">
+                            <img className="change-cursor" style={{width:'32px', height:'32px'}} src={this.state.subscribe?bellDone:bellNone} title={this.state.subscribe?"Unsubscribe from comment notifications":"Subscribe to comment notifications"}onClick={
+                                this.commentSubscribe}></img>
+                       
+                            </div>
+                            </Col>
+                        </Row>
+                        <Row>
+                            <Col>
+                            <FormGroup>
+                                <Label for="commentTextArea" className="float-left"><span>Comment this post</span></Label>
+                                <Input type="textarea" name="text" id="commentTextArea" 
+                                placeholder="Insert your comment here"
+                                value={this.state.comment}
+                                onChange={(evt)=>{this.setState({comment:evt.target.value})}}
+                                onKeyDown={(evt)=>{
+                                    if(evt.key==="Enter"){
+                                        this.commentPost()
+                                    }
+                                }}
+                                />
+                            </FormGroup>
+                            </Col>
+                        </Row>
+                        <Row>
+                            <Col>
+                            {this.state.fetchNewCommButton && <small className="float-left change-cursor" style={{color:"#00adb5"}} onClick={()=>{
+                                    this.loadCommentsPromptfetch()
+                            }}>Someone wrote a new comment, do you wish to load it?</small>}
+                            </Col>
+                            <Col>
+                            <img className="float-right change-cursor" src={postComment} style={{width:'32px', height:'32px'}} onClick={this.commentPost} title="Post Comment"></img>
+                            </Col>
+                        </Row>
+                        <Row style={{marginTop:'30px'}}>
+                            <Col>
+                            <div id="comments-section" style={{maxHeight:'600px', overflowY:'scroll'}}>
+                                {this.generateComments()}
+                                </div>
+                            </Col>
+                        </Row>
+                    </div>
+                    </Col>
+                </Row>
+            </Container>
+        </div>
+    </div>)
+}
+
 }
 
 
+const MediaScheleton = ()=>{
+
+    return(
+        <div className="comment-bubble">
+            <Media className="mt-1">
+                <Media left middle > 
+                    <div style={{width:'64px', height:'64px', borderRadius:'50%'}}>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+                </Media>
+                <Media body>
+                  <Media heading >
+                      <p style={{textAlign:'justify'}} > <Badge color="secondary">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</Badge></p>
+                  </Media>
+                 <p style={{textAlign:'justify'}}>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</p>
+                 <small className="text-muted float-left" >&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</small>
+                </Media>
+              </Media>
+              <Divider/>
+              <br></br>
+        </div>
+        )
+
+}
+
+
+
+const PostPageScheleton = ()=>{
+    return(
+    <div style={{width:'100%', height:'100%'}}>
+  
+        <Skeleton height={300} count={1} width={'100%'}>
+        </Skeleton>
+</div>)
+
+}
+
+
+
+
 export default PostPage;
+
+
+

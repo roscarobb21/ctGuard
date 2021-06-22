@@ -1,0 +1,40 @@
+.popular-presentation{
+    min-height:80vh;
+    background-color: white;
+    margin-top: 30px;
+    border-radius:20px;
+    padding:20px;
+}
+
+.popular-list-item{
+    transition: font-size 0.5s ease;
+}
+
+.popular-list-item:hover{
+    font-size:140%;
+}
+
+::-webkit-scrollbar {
+    width: 0;  /* Remove scrollbar space */
+    background: transparent;  /* Optional: just make scrollbar invisible */
+}
+/* Optional: show position indicator in red */
+::-webkit-scrollbar-thumb {
+    background: #FF0000;
+}
+
+
+.wrapper{
+    position:relative;
+    overflow-y:hidden;
+}
+#scroll-text {
+    position: absolute;
+
+    border-radius:20px;
+    
+    bottom: 1%;
+    right: 0;
+  }
+
+

@@ -27,9 +27,15 @@ import {
     AvFeedback
 } from 'availity-reactstrap-validation';
 
-
 import eye from '../../assets/eye.png';
+import ctGuardLogo from '../../assets/security.png';
 import api from '../../constants/api';
+
+
+
+import Footer from '../Footer/Footer';
+
+import './Admin.css';
 
 class AdminLogin extends Component {
     constructor(props) {
@@ -41,8 +47,11 @@ class AdminLogin extends Component {
             isErr:'',
             err:false,
             closeModal:false,
-        }
+            email:"",
+            password:"",
+           
     }
+}
     handleModal=()=> {
         this.setState({
             closeModal: !this.state.closeModal,
@@ -53,17 +62,17 @@ class AdminLogin extends Component {
     handleLoginSubmit=()=>{
         this.setState({replaceSubmit:true})
         let route='/adminLog'
-if(document.getElementById("email").value==="")
+        if(this.state.email.length === 0)
         {
             this.setState({isErr:"Email input empty", closeModal:true, err:true})
             return
-        }
-        if(document.getElementById("pass").value==="")
+        }   
+        if(this.state.password.length === 0)
         {
             this.setState({isErr:"Password input empty", closeModal:true, err:true})
             return
         } 
-        let url = api + route;
+        let url = api.backaddr + route;
 
         let options = {
           method: "POST",
@@ -73,21 +82,21 @@ if(document.getElementById("email").value==="")
             Pragma: "no-cache",
           },
           body: JSON.stringify({
-            email: document.getElementById("email").value,
-            password: document.getElementById("pass").value,
+            email: this.state.email,
+            password: this.state.password,
           }),
         };
     
          fetch(url, options).then(response => response.json())
         .then(response => {
-        console.log("user.isAdmin : ", response.user)
-            if(response.token !== undefined && response.user.isAdmin === true ){
-        localStorage.setItem("token", response.token)
-        localStorage.setItem("isAdmin", response.user.isAdmin)
-        window.location.replace('/admin/dashboard')
-        return
+            if(response.ok === 0 ){
+                this.setState({isErr:response.msg, closeModal:true, err:true})
             }
-            window.location.reload()
+            if(response.token !== undefined && response.user.isAdmin === true ){
+                localStorage.setItem("token", response.token)
+                localStorage.setItem("isAdmin", response.user.isAdmin)
+                window.location.replace('/admin/dashboard')
+            }
         }).catch(err=>{
           console.error('[Login] Fetch error : ', err.toString())
           window.location.reload();
@@ -97,7 +106,9 @@ if(document.getElementById("email").value==="")
     render() {
         return (
             <div className="login-page">
-                <Modal isOpen={
+                <Modal 
+                className="background-component"
+                isOpen={
                        this.state.closeModal
                     }
                     toggle={
@@ -105,9 +116,9 @@ if(document.getElementById("email").value==="")
                 }>
                     <ModalHeader toggle={
                         this.closeModal
-                    }> {this.state.err?"Error Diaog":"Dialog"} </ModalHeader>
+                    }> {this.state.err?<span>Error Dialog</span>:<span>Dialog</span>} </ModalHeader>
                     <ModalBody>
-                    {this.state.isErr}
+                    <span>{this.state.isErr}</span>
                     
                     </ModalBody>
                     <ModalFooter>
@@ -119,23 +130,27 @@ if(document.getElementById("email").value==="")
                 </Modal>
               
 
-               <a href="/"> <p>← back to home</p></a>
-           <Row>
+               
+           <Row style={{minHeight:'90vh'}}>
                 <Col></Col>
                 <Col xs="12" sm="6" md="4">
-                <div className="user-login-position">
+                <div className="user-login-position admin-login-box background-component">
                     <div className="fade-in">
-                        <p className="text-header1">ctGuard Admin Login
+                    <a href="/admin/register"> <p>← register as Administrator</p></a>
+                        <p className="text-header2">Log in as admin on ctGuard&nbsp;<img className="reglog-ct-logo" src={ctGuardLogo} title="ctGuard"></img>
                         </p>
                         <br></br>
                         <AvForm >  
                              <AvGroup>
-                                <Label for="email"
+                                <Label
+                                className="float-left"
+                                for="email"
                                     style={
                                         {color: "black"}
-                                }>Email</Label>
+                                }><span>Email</span></Label>
                                 <InputGroup>
                                     <AvInput name="email" placeholder="Enter your email " required
+                                    onChange={evt=>{this.setState({email:evt.target.value})}}
                                       onKeyPress={(key)=>{
                                         if(key.key==="Enter")
                                         {
@@ -146,16 +161,19 @@ if(document.getElementById("email").value==="")
                                 </InputGroup>
                             </AvGroup>
                             <AvGroup>
-                                <Label for="pass"
+                                <Label 
+                                className="float-left"
+                                for="pass"
                                     style={
                                         {color: "black"}
-                                }>Password</Label>
+                                }><span>Password</span></Label>
                                 <InputGroup >
                                     <AvInput 
                                     type={this.state.showPass===true?"text":"password"}
                                         name="pass"
                                         placeholder="Your Password goes here"
                                         required
+                                        onChange={evt=>{this.setState({password:evt.target.value})}}
                                         onKeyPress={(key)=>{
                                             if(key.key==="Enter")
                                             {
@@ -174,16 +192,22 @@ if(document.getElementById("email").value==="")
                                 </InputGroup>   
                             </AvGroup>
                             <AvGroup>
-                                <a href="/forgot">Forgot your password?
-                                </a>
                             </AvGroup>
-                            {this.state.replaceSubmit?<div><Spinner color="dark"  /></div>:<Button outline color="primary"
+                            <div>
+                            <p>Forgot your password?&nbsp;<a href="/forgot">Reset&nbsp;it!</a></p>
+                            </div>
+                            {this.state.replaceSubmit?<div><Spinner color="primary"  /></div>:<Button outline color="primary"
                               onClick={this.handleLoginSubmit} >Submit</Button>}
                             </AvForm>
                             </div>
                             </div>
                 </Col>
                 <Col></Col>
+           </Row>
+           <Row>
+               <Col>
+               <Footer/>
+               </Col>
            </Row>
            </div>
         );

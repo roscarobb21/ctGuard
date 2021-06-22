@@ -1,0 +1,227 @@
+
+
+:root{
+  --bg-color: #eaeaea;
+  --accent: #08d9d6;
+  --bg-component:white;
+  --text-color:black;
+  --shadow:10px 10px 5px #aaaaaa;
+  --register-border:rgba(0, 0, 0, 0.23);
+  --bg-footer-header:#dddddd;
+  --bg-component-level-1:whitesmoke;
+  --card-footer-accent:#dddddd;
+  --inverted-text:white;
+  --bg-component-level-2:#eee;
+ transition: background-color 1s ease;
+}
+
+
+.white-background{
+  --bg-color: #eaeaea;
+  --accent: #08d9d6;
+  --bg-component:white;
+  --text-color:black;
+  --shadow:10px 10px 5px whitesmoke;
+  --register-border:rgba(0, 0, 0, 0.23);
+
+}
+
+.dark-mode {
+  --bg-color: #252a34;
+  --accent: #08d9d6;
+  --bg-component:#393939;
+  --text-color:white;
+  --shadow:10px 10px 5px #393939;
+  --register-border:rgba(255, 255, 255, 0.7);
+  --bg-footer-header:#393e46;
+  --bg-component-level-1:#00adb5;
+  --bg-component-level-2:#444444;
+  --card-footer-accent:#393e46;
+  --inverted-text:black;
+  transform: all 1s;
+}
+
+/*
+temp
+bg component #393939
+bg : 252a34
+*/
+
+/*
+Skeleton theme
+*/
+
+.skeleton-theme{
+background-color: var(--bg-component-level-2) !important;
+background-image: linear-gradient( 90deg,var(--bg-component-level-2), var(--card-footer-accent),var(--bg-component-level-2) ) !important;
+}
+
+/*
+pagination spans always have black text
+*/
+.pagination>li>a>span{
+  color:black !important;
+}
+.pagination>li>button>span{
+  color:black !important;
+}
+
+
+.modal-content{
+  background-color: var(--bg-component) !important;
+}
+.fileContainer{
+  background-color: var(--bg-component) !important;
+}
+
+
+.MuiFormLabel-root{
+  color:var(--text-color) !important;
+}
+
+.MuiFormLabel-root.Mui-focused{
+  color:#08d9d6 !important;
+}
+.MuiFormHelperText-root.Mui-error{
+  color:#f44336 !important;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    transition: background-color 5000s ease-in-out 0s, color 5000s ease-in-out 0s;
+    transition-delay: background-color 5000s, color 5000s;
+}
+
+.MuiOutlinedInput-notchedOutline{
+  border-color:var(--register-border) !important;
+}
+.MuiInputBase-input{
+  color: var(--text-color) !important;
+}
+.MuiInputBase-root{
+  color:var(--text-color) !important;
+}
+
+.text-black-always{
+  color:black !important;
+}
+
+.text-color{
+  color:var(--text-color) !important;
+}
+
+.text-color-inverted-profile{
+  color:var(--text-color) !important;
+}
+.text-color-inverted-profile:active{
+  color:black!important;
+}
+
+.register-component{
+  min-height:300px;
+   min-width:300px;
+   background-color:var(--bg-component); 
+   border-radius:20px;
+    padding:25px; 
+   box-shadow:var(--shadow);
+}
+.login-component{
+  min-height:350px;
+  min-width:350px;
+  background-color: var(--bg-component);
+  border-radius:20px;
+  box-shadow: 10px 10px 5px var(--shadow);
+  padding:10px;
+}
+
+.forgot-component{
+  min-height:300px;
+  min-width:100%;
+  background-color:var(--bg-component);
+  border-radius:20px;
+  padding:25px;
+  box-shadow:10px 10px 5px var(--shadow);
+}
+.forgot-reset{
+  min-height:300px;
+  min-width:100%;
+  background-color:var(--bg-component);
+  border-radius:20px;
+  padding:25px;
+  box-shadow:10px 10px 5px var(--bg-component);
+}
+
+.footer-header{
+  background-color: var(--bg-footer-header) !important;
+}
+
+.background{
+  background-color: var(--bg-color) !important;
+}
+.background-component{
+  background-color: var(--bg-component) !important;
+}
+.background-component-level-1{
+  background-color: var(--bg-component-level-1) !important;
+}
+
+.register-background{
+  background-color: var(--bg-color) !important;
+}
+
+.text-header1{
+  color:var(--text-color) !important;
+}
+
+.text-header2{
+  color:var(--text-color) !important;
+}
+
+.card-footer-accent{
+  background-color: var(--card-footer-accent) !important;
+}
+.flex{
+  display:flex !important;
+}
+
+
+
+.vertical-center{
+  align-self:center !important;
+} 
+
+p{
+  color:var(--text-color) !important;
+}
+
+span{
+  color:var(--text-color) !important;
+}
+
+
+.chat-header{
+  background-color: #393e46;
+  position:absolute;
+  top:0;
+  width:100%;
+  padding:20px;
+  border-radius:20px 20px 0px 0px;
+  height:35px;
+  z-index: 2000;
+}
+
+.chat-user-header-left {
+  color:white !important;
+  z-index:2001;
+  top:2px;
+  left:20px;
+  position:absolute;
+}
+  .chat-user-header-right{
+    z-index:2001;
+    top:2px;
+    right:20px;
+    position:absolute;
+  }

@@ -8,77 +8,104 @@ const Posts= require('../models/Posts');
 const ChatRooms= require('../models/Chat');
 const openGeocoder = require('node-open-geocoder');
 const { random } = require('faker')
-const { post } = require('../router/router')
-const { ObjectId } = require('mongodb');
+const { post, route } = require('../router/router')
+const { ObjectId, ObjectID } = require('mongodb');
 
 const { runInNewContext } = require('vm')
-
-
-
+const fetch = require('node-fetch');
+const NotificationQ = require('../models/notificationQueue')
+const DeAnonQueue = require('../models/DeAnonQueue')
+const Popular = require('../models/Popular');
 const bcrypt = require('bcrypt')
-
-
+var mv = require('mv');
+var fs = require('fs');
+const Jimp = require('jimp');
+var convert = require('xml-js');
 /**
  * Extracts mentions and hashtags from a string
  */
 const extract = require('mention-hashtag')
 
+const {spawn} = require('child_process');
 
-const NotificationQ = require('../models/notificationQueue')
-
+const {PythonShell} =require('python-shell'); 
 const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require('constants')
-//console.log("app is ", app)
+const { async } = require('crypto-random-string')
+const Achivements = require('../models/Achivements')
 
-var imgStorage = multer.diskStorage({
-    destination: './uploads/',
-    filename: function (req, file, cb) {
-    cb(null, req.user._id+'.png')
+var _ = require('lodash');
+const { checkAndMakeDir } = require('express-fileupload/lib/utilities')
+const notificationQueue = require('../models/notificationQueue')
+const News = require('../models/News')
+
+
+router.get('/myid', async(req, res, next)=>{
+    let id = req.user._id;
+    let found = await User.findOne({_id:id});
+    if(found){
+        res.json({ok:1, myID: found._id, avatarUrl:found.avatarUrl});
+        return
+
+    }else {
+        res.json({ok:0, err:"User not found"})
+        return;
     }
-  })
-  
- 
+})
 
-  var uploadImg = multer({ dest: 'uploads/' , storage:imgStorage})
 
-  var postStorage = multer.diskStorage({
-    destination: './postUploads',
-    filename: async function (req, files, cb) {
-        
-    let actualPost = await Posts.findOne({_id:req.query.postId.toString()});
-    if(actualPost){
-if(files.mimetype==='video/mp4'){
-    
-    var crypto = require("crypto");
-    var name = crypto.randomBytes(15).toString('hex');
-    await Posts.updateOne({_id:req.query.postId.toString()}, {$push:{media:"http://localhost:5000/"+name+".mp4"}})
-    cb(null, name+'.mp4')
-
-}
-else {
-    
-        var crypto = require("crypto");
-        var name = crypto.randomBytes(15).toString('hex');
-        await Posts.updateOne({_id:req.query.postId.toString()}, {$push:{media:"http://localhost:5000/"+name+".png"}})
-        cb(null, name+'.png')
+router.post('/online', async(req, res, next)=>{
+    let uid = req.user._id;
+    let found = await User.findOne({_id:uid})
+    if(found){
+        await User.findOneAndUpdate({_id:uid}, {latestActive:Date.now()})
+        console.log("User ", uid , " is online!")
+        res.json({ok:1, msg:"User updated Online"})
+        return
+    }else {
+        res.json({ok:0, err:"User not found"})
+        return
     }
+})
 
-}else {
-        cb(null, null)
-    }
-    }
-  })
 
-  var postUpload = multer({dest:'/postUploads', storage:postStorage});
 
 /**
  * localhost:{port}/api GET USER INFO
  */
 
-  router.get('/', async (req, res, next) => {
+ router.get('/', async (req, res, next) => {
     let id = req.user._id;
     let user = await User.findOne({_id:id})
+    if(user === null){
+        res.json({ok:0, err:"User not found"})
+        return
+    }
+    
+    let achiv = await Achivements.find({_id:user.achivements});
+    let orderedAchiv = []
+    achiv.forEach(element => {
+        if(element.media[0] === "policeman.jpg" || element.media[0] === "security.jpg" || element.media[0] === "trust.jpg"){
+            orderedAchiv.unshift(element);
+        }else {
+            orderedAchiv.push(element);
+        }
+    });
+   // console.log('achivs are : ', achiv)
+   let notif = await notificationQueue.findOne({user_id:user._id});
+   
+   let news = notif.news
+   let newsText;
+   let newsView
+   if(news.length === 0){
+       newsText = "";
+       newsView = "";
+   }else {
+    newsText = await News.findOne({_id:news[news.length-1].news_id})
 
-    let newUser = {id:user._id, email:user.email, avatarUrl:user.avatarUrl, username:user.username, liked :user.liked, following: user.following, country: user.country, region: user.region, upVoted:user.upVoted, feed:user.feed, isAdmin:user.isAdmin}
+    newsView = news[news.length-1];
+ 
+   }
+    let newUser = {anonFlag: user.anon, pendingAnon:user.pendingAnon, id:user._id, email:user.email, avatarUrl:user.avatarUrl, username:user.username, liked :user.liked, following: user.following, country: user.country, region: user.region, upVoted:user.upVoted, feed:user.feed, isAdmin:user.isAdmin, showcase:orderedAchiv, darkTheme:user.darkTheme, bio:user.bio, newsview:newsView, newstext:newsText}
     if(user){
         res.json({ok:1, user:newUser})
     }
@@ -86,6 +113,278 @@ else {
         res.json({ok:0})
     }
 });
+
+
+/**
+ * Change user BIO
+ */
+router.post('/change_bio', async(req, res, next)=>{
+    let uid = req.user._id;
+    let bio = req.body.bio.toString();
+    bio = bio.length> 250?bio.substring(0, 250):bio;
+    bio = bio.trim()
+    let found = await User.findOne({_id:uid});
+    if(found){
+        await User.updateOne({_id:uid}, {bio:bio})
+        res.json({ok:1, msg:"Bio updated!"})
+        return;
+    }else {
+        res.json({ok:0, err:"User not found"});
+        return
+    }
+})
+
+/**
+ * Set user preffered theme
+ */
+router.get('/change_theme', async(req, res, next)=>{
+    let uid = req.user._id;
+    let found = await User.findOne({_id:uid});
+    console.log("🚀 ~ file: router.js ~ line 88 ~ router.get ~ found", found)
+    if(found){
+        await User.updateOne({_id:uid}, {darkTheme:!found.darkTheme})
+        res.json({ok:1})
+        return
+    }
+    res.json({ok:0})
+    return
+})
+router.post('/change_timeline', async(req, res, next)=>{
+    let uid = req.user._id;
+    let timeline = req.body.timeline.toString() === "true"?true:false;
+    console.log("🚀 ~ file: router.js ~ line 100 ~ router.post ~ timeline", timeline)
+    let found = await User.findOne({_id:uid})
+    if(found){
+        await User.updateOne({_id:uid}, {feed:timeline})
+        res.json({ok:1})
+        return
+    }else {
+        res.json({ok:0, err:"User not found"})
+        return
+    }
+})
+
+/**
+ * Return user country and county from 
+ * latitude and longitude
+ */
+
+router.get('/location?', async(req, res, next)=>{
+    let lat = req.query.lat;
+    let lon = req.query.lon;
+    
+    let link = "https://nominatim.openstreetmap.org/reverse?lat="+lat+"&lon="+lon;
+    let responseRaw = await fetch(link);
+    let responseXML = await responseRaw.text()
+    let responseJSON = convert.xml2json(responseXML, {compact: true, spaces: 4});
+    let format = await JSON.parse(responseJSON)
+
+    let uid = req.user._id;
+    lat = lat.length > 9? lat.substring(0, 9):lat
+    lon = lon.length > 9? lon.substring(0, 9):lon
+    await User.findOneAndUpdate({_id:uid}, {lat:lat, long:lon})
+
+    res.json({ok:1, address:{country:format.reversegeocode.addressparts.country._text, county:format.reversegeocode.addressparts.county._text}})
+    })
+
+
+  router.post('/deanonmedia',  async function (req, res, next) {
+    console.log("********* DE ANON MEDIA *******")
+    let id = req.user._id;
+    let file = req.files.avatar;
+    console.log("🚀 ~ file: router.js ~ line 106 ~ file", file)
+    let name = crypto.randomBytes(15).toString('hex');
+    let finalPath = __dirname+'\\..\\deAnonUploads\\';
+    let uploadPath = __dirname+'\\..\\tmpUploads\\';
+    let tmppath = uploadPath;
+   
+    if (!fs.existsSync(uploadPath)){
+        fs.mkdirSync(uploadPath);
+    }
+    if (!fs.existsSync(finalPath)){
+        fs.mkdirSync(finalPath);
+    }
+
+    tmppath+=name;
+    tmppath+='.jpg';
+
+    file.mv(tmppath, async function(err) {
+        Jimp.read(tmppath, function(err, img){
+            //let sizes = [128, 256, 512, 1080];
+            let sizes = [1080, 512, 256, 128];
+            let quality = 100;
+            let path = finalPath;
+             // resize for all sizes
+             sizes.forEach(function (size) {
+                 // resize, and save to the build folder
+                 img.scaleToFit(size, Jimp.AUTO, Jimp.RESIZE_BEZIER)
+                 .quality(100)
+                 .write('./deAnonUploads/'+size+'/'+'__'+size+'__'+name+'.jpg'); // save
+             });
+        })
+        
+         });
+         await DeAnonQueue.findOneAndUpdate({user_id:id}, {mediaFile:name+'.jpg'})
+         res.json({ok:1})
+
+  })
+
+  router.post('/postmedia',  async function (req, res, next) {
+    let uploadPath = __dirname+'\\..\\tmpUploads\\';
+    let finalPath  = __dirname+'\\..\\postUploads\\';
+
+    let io = req.app.get('socketio');
+   
+
+    let user = req.user;
+    let body = req.body;
+    let pid = req.query.postId.toString();
+    let reqFiles;
+    if(req.files === null){
+        reqFiles=[]
+       // io.to(user._id.toString()).emit("no_post_media")
+        res.json({ok:1})
+    }else {
+        reqFiles = req.files.image;
+       // io.to(user._id.toString()).emit("finish_upload")
+        res.json({ok:1})
+    }
+
+    let files = [].concat(reqFiles);
+    var links = []
+    
+ 
+   
+    if (!fs.existsSync(uploadPath)){
+        fs.mkdirSync(uploadPath);
+    }
+    
+    
+
+    files.forEach( async (file)=> {
+        let name;
+        name = crypto.randomBytes(15).toString('hex');
+        let ext = file.mimetype.split('/')[0];
+        let tmppath = uploadPath;
+        let finalPathFile = finalPath;
+
+        tmppath+=name;
+        tmppath+=ext=='video'?'.mp4':'.jpg';
+        let link = name;
+        link+=ext==='video'?'.mp4':'.jpg'
+        links.push(link)
+       
+        if(ext !== 'video'){
+        file.mv(tmppath,async function(err) {
+           Jimp.read(tmppath, function(err, img){
+              // let sizes = [360, 720, 1080];
+               
+               let sizes = [1080, 720, 360];
+               let quality = 10;
+               let path = finalPathFile;
+                // resize for all sizes
+                sizes.forEach(function (size) {
+                    // resize, and save to the build folder
+                    img.scaleToFit(size, Jimp.AUTO, Jimp.RESIZE_BEZIER)
+                    .quality(100)
+                    .write('./postMedia/'+size+'/'+'__'+size+'__'+name+'.jpg'); // save
+                });
+           })
+            });
+
+        }else {
+            file.mv( './tmpUploads/TMP'+name+'.mp4' , async function(err){})
+
+            console.log("Python Script Started !")
+            
+            let options360 = { 
+                mode: 'text', 
+                pythonOptions: ['-u'], // get print results in real-time 
+                scriptPath: 'secretRouter',
+                args: ["\\tmpUploads\\TMP"+name+'.mp4', '\\postMedia\\360\\__360__'+name+'.mp4', '360p'] //An argument which can be accessed in the script using sys.argv[1] 
+            }; 
+            PythonShell.run('./videoResize.py', options360, function (err, result){ 
+                if (err) throw err; 
+              //Collect python result from result.toString()
+           }); 
+           let options720 = { 
+            mode: 'text', 
+            pythonOptions: ['-u'], // get print results in real-time 
+            scriptPath: 'secretRouter',
+            args: ["\\tmpUploads\\TMP"+name+'.mp4', '\\postMedia\\720\\__720__'+name+'.mp4', '720p'] //An argument which can be accessed in the script using sys.argv[1] 
+        }; 
+        PythonShell.run('./videoResize.py', options720, function (err, result){ 
+            if (err) throw err; 
+            //Collect python result from result.toString()
+       }); 
+       let options1080 = { 
+        mode: 'text', 
+        pythonOptions: ['-u'], // get print results in real-time 
+        scriptPath: 'secretRouter',
+        args: ["\\tmpUploads\\TMP"+name+'.mp4', '\\postMedia\\1080\\__1080__'+name+'.mp4', '1080p'] //An argument which can be accessed in the script using sys.argv[1] 
+    }; 
+    PythonShell.run('./videoResize.py', options1080, function (err, result){ 
+        if (err) throw err; 
+        //Collect python result from result.toString()
+   }); 
+        let unlinkExt = ext=='video'?'.mp4':'.jpg';
+        //TODO
+        //DELETE TEMPORARY FILES FROM TMP FOLDER
+        }
+    });
+  await Posts.findOneAndUpdate({_id:pid}, {media:links})
+  await res.json({ok:1})
+  return;
+  })
+
+  router.post('/profileAvatar', async function (req, res, next) {
+    let user = req.user;
+    let uid = req.user._id;
+    let avatar = req.files.avatar;
+    let name = crypto.randomBytes(15).toString('hex');
+    let finalPath = __dirname+'\\..\\avatarUploads\\';
+    let uploadPath = __dirname+'\\..\\tmpUploads\\';
+    let tmppath = uploadPath;
+   
+    if (!fs.existsSync(uploadPath)){
+        fs.mkdirSync(uploadPath);
+    }
+    if (!fs.existsSync(finalPath)){
+        fs.mkdirSync(finalPath);
+    }
+
+    tmppath+=name;
+    tmppath+='.jpg';
+
+    avatar.mv(tmppath, async function(err) {
+        Jimp.read(tmppath, function(err, img){
+           // let sizes = [128, 256, 512, 1080];
+            let sizes = [1080, 512, 256, 128];
+            let quality = 100;
+            let path = finalPath;
+             // resize for all sizes
+             sizes.forEach(function (size) {
+                 // resize, and save to the build folder
+                 img.scaleToFit(size, Jimp.AUTO, Jimp.RESIZE_BEZIER)
+                 .quality(100)
+                 .write('./avatarUploads/'+size+'/'+'__'+size+'__'+name+'.jpg'); // save
+             });
+        })
+        
+         });
+         let avatarUrl = name+'.jpg';
+
+   let found =  await User.findOneAndUpdate({_id:uid}, {avatarUrl:avatarUrl})
+    await ChatRooms.update({secondUsername:found.username},{secondAvatarUrl:avatarUrl})
+    
+    await ChatRooms.update({firstUsername:found.username},{firstAvatarUrl:avatarUrl})
+
+         res.json({ok:1})
+  })
+
+
+
+
 
 /**
  * Route to change user password to a new one
@@ -127,6 +426,8 @@ else {
      let uid = req.user._id;
      let email = req.body.email.length>0?req.body.email:"NOCHANGE";
      let username = req.body.username.length>0?req.body.username:"NOCHANGE";
+     let country = req.body.country !== null? req.body.country:"Romania";
+     let region = req.body.region
      let found = await User.findOne({_id:uid});
      if( found ){
          if(email !== "NOCHANGE"){
@@ -137,6 +438,16 @@ else {
     if(username !== "NOCHANGE"){
         await User.updateOne({_id:found._id}, {
             username:username,
+        })
+    }
+    if(country !== "NOCHANGE"){
+        await User.updateOne({_id:found._id}, {
+            country:country,
+        })
+    }
+    if(region !== "NOCHANGE"){
+        await User.updateOne({_id:found._id}, {
+            region:region,
         })
     }
 res.json({ok:1, msg:'Info updated !'})
@@ -156,23 +467,60 @@ router.get('/user?', async (req, res, next)=>{
     let user = await User.findOne({_id:id});
     let myUser = await User.findOne({_id:requestuid});
     if(user._id.toString()  === myUser._id.toString()){
-        res.json({ok:3, msg:"Same user, redirect to /profile"})
+        res.json({ok:3, msg:"Same user, redirect to /profile"}).redirect('/profile')
         return;
     }
     let posts;
     let newUserInfo={};
     if(user){
-        
+        let achiv = await Achivements.find({_id:user.achivements});
+        let orderedAchiv = []
+        achiv.forEach(element => {
+            if(element.media[0] === "policeman.jpg" || element.media[0] === "security.jpg" || element.media[0] === "trust.jpg"){
+                orderedAchiv.unshift(element);
+            }else {
+                orderedAchiv.push(element);
+            }
+        });
+
         newUserInfo.avatarUrl=user.avatarUrl;
         newUserInfo.username= user.username;
-        posts = await Posts.find({postedBy:user._id}).sort({_id:-1})
+        newUserInfo.showcase= orderedAchiv;
+        newUserInfo.postPoints = user.postPoints;
+        newUserInfo.anon = user.anon;
+        if(user.anon === false){
+            newUserInfo.firstName = user.firstName;
+            newUserInfo.lastName = user.lastName;
+        }
+        if(user.isAdmin === true){
+            newUserInfo.functionTxt = user.functionTxt;
+        }
+       
+        newUserInfo.online = ((Date.now() - user.latestActive)<5*60*1000);
+        newUserInfo.bio = user.bio;
+        newUserInfo.isAdmin = user.isAdmin;
+        newUserInfo._id = user._id;
+        newUserInfo.email = user.email;
+        posts = await Posts.find({postedBy:user._id}).sort({_id:-1}).lean()
         if(posts){
-            newUserInfo.posts=posts;
+        
+            posts.forEach(element => {
+                element.usrUpVoted = element.upVoted.includes(requestuid.toString());
+                element.usrFollow = myUser.following.includes(element._id.toString());
+            });
+            
+            newUserInfo.posts = posts;
+            newUserInfo.achivements = user.achivements;
+            newUserInfo.law= user.isAdmin?true:false;
             res.json({ok:1, user:newUserInfo});
+            return
+
+
         }else {
             res.json({ok:0, err:'No posts found'});
         }
     }else {
+        res.json({ok:0, err:"User not found"})
         console.log({ok:0, err:'User not found'})
     }
 
@@ -330,7 +678,7 @@ let uid = req.user._id;
 let found = await User.findOne({_id:uid});
 if(found){
     let posts = await Posts.find({_id:{$in:found.upVoted} }).sort({datePosted:-1}).limit(10)
-    console.log('upvoted posts are ', posts)
+  //  console.log('upvoted posts are ', posts)
     res.json({ok:1, posts:posts})
     return
 
@@ -345,17 +693,12 @@ router.get('/following', async(req, res, next)=>{
     let uid = req.user._id;
     let found = await User.findOne({_id:uid});
     if(found){
-        let posts = await Posts.find({_id:{$in:found.following}}).sort({datePosted:-1}).limit(10)
-        console.log('following posts are ', posts)
+        let posts = await Posts.find({_id:{$in:found.following}}).sort({lastUpdated:-1}).limit(10).lean()
         posts.forEach(element => {
-            if(found.following.includes(element._id.toString())){
-                console.log(posts[element])
-            }else{
-                element.usrFollow=false;
-            }
-            return element
+            element.usrFollow= true;
+            element.usrUpVoted = element.upVoted.includes(element._id.toString())
         });
-        console.log('posts', posts)
+       
     res.json({ok:1, posts:posts})
     return
     }else {
@@ -366,14 +709,45 @@ router.get('/following', async(req, res, next)=>{
 router.get('/posts', async(req, res, next)=>{
 let id = req.user._id;
 let user = await User.findOne({_id:id});
-let usrPost = await Posts.find({postedBy:user._id}).sort({_id:-1});
-if(usrPost){
-    res.json({ok:1, posts:usrPost})
-}else {
-    res.json({ok:0, err:"You don't have any posts"})
-}
+let usrPost = await Posts.find({postedBy:user._id}).sort({datePosted:-1}).lean();
+/**
+ * Set user liked of followed to each post
+ */
+ usrPost.forEach(element => {
+     //upvotes usrUpVoted
+    element.usrUpVoted = element.upVoted.includes(id);
+    //follow usrFollow
+    element.usrFollow = user.following.includes(element._id.toString());
+
+});
+res.json({ok:1, posts:usrPost})
+return
 })
 
+/**
+ * Get post media for media page
+ * 
+ */
+
+router.get('/mediaLarge?', async(req, res, next)=>{
+let id = req.user._id;
+let pid = req.query.id;
+let found = await User.findOne({_id:id});
+if(found){
+    let post = await Posts.findOne({_id:pid});
+    if(post){
+        res.json({ok:1, media:post.media, header:post.header, postedByUsername:post.postedByUsername, postedBy: post.postedBy})
+        return
+
+    }else {
+        res.json({ok:0, err:"Post not found!"})
+        return
+    }
+}else{
+    res.json({ok:0, err:"User not found!"})
+    return
+}
+})
 /**
  * Get info regarding specific post
  * PostPage
@@ -387,9 +761,15 @@ if(pid.toString().length!== 24 ){
 }
 let found = await User.findOne({_id:uid})
 if(found){
-    let postFound = await Posts.findOne({_id:pid})
-    
+    let postFound = await Posts.findOne({_id:pid}).lean()
+   
     if(postFound){
+        let commentArr = postFound.comments
+        if(commentArr.length != 0){
+            commentArr.reverse()
+            commentArr.splice(10, commentArr.length)
+           // commentArr.limit(10)
+        }
         //return post
         let up=false, follow=false, sub=false; 
         if(found.upVoted.includes(postFound._id.toString())){
@@ -401,7 +781,9 @@ if(found){
         if(found.subscribed.includes(postFound._id.toString())){
             sub= true;
         }
-        res.json({ok:1, post:postFound, up:up, follow:follow, user:found, subscribe:sub})
+        followNum = postFound.followers;
+        upVotesNum = postFound.upVotes;
+        res.json({ok:1, post:postFound, up:up, follow:follow, user:found, subscribe:sub, commentArr:commentArr, followNum:followNum, upVotesNum:upVotesNum})
         return
     }else {
         res.json({ok:0, err:"post not found"})
@@ -410,6 +792,27 @@ if(found){
     res.json({ok:0, err:"user not found"})
 }
 })
+
+/**
+ * Checks if string s has an space unbreaked array of characters bigger than 50
+ * @param {} s - post body 
+ * @returns processed String
+ */
+
+async function check_if_string_has_big_word(s){
+    let regVerify = /\w{50,}/g
+    let retString =s.toString();
+    let check = await regVerify.exec(retString)
+    
+    while(check){
+        retString = retString.slice(0, check.index+25) + " " + retString.slice(check.index+25);
+        check = await regVerify.exec(retString)
+    }
+   
+    return retString
+}
+
+
 /**
  * Add user post
  */
@@ -426,8 +829,14 @@ router.post('/posts', async(req, res, next)=>{
             getTags = getTags.concat(element)
         }
     });
-    console.log("THE TAGS ", getTags)
-    let done = await Posts.create({header:post.title, body: post.body, category: post.category, postedBy: user._id, datePosted: Date.now(), tags:getTags});
+    let procesedBody = await check_if_string_has_big_word(post.body);
+    /**
+     * Bugfix 
+     * check if body of the post contains words bigger that 50 characters
+     * if yes insert space
+     * if not do next
+     */
+    let done = await Posts.create({header:post.title, body: procesedBody, category: post.category, postedBy: user._id, datePosted: Date.now(), tags:getTags, lat: post.lat, long: post.long, country:post.country, region:post.region, postedByUsername:user.username});
     /**
      * ADD OBJECT TAGS EG
      * {tag:"some", count:0}
@@ -444,7 +853,21 @@ router.post('/posts', async(req, res, next)=>{
                         });
                     }
                 });
-    let usr = await User.updateOne({_id:id}, {tags:user.tags, $inc:{postsNumber:1, postPoints:5}})
+    let usr = await User.updateOne({_id:id}, {tags:user.tags, $inc:{postsNumber:1, postPoints:5}});
+    //autofollow your posts
+    await User.updateOne({_id:id}, {$push:{following:done._id.toString()}})
+    await Posts.updateOne({_id:done._id.toString()},{$inc:{followers:1}})
+    /**
+     * ADD POINTS AND CHECK FOR ACHIVEMENTS
+     */
+    let Achiv = await Achivements.find().lean();
+    Achiv.forEach(async element => {
+        if(user.postPoints >= element.points){
+           await User.updateOne({_id:id}, {$addToSet:{achivements:element._id.toString()}})
+        }
+    });            
+
+
     if (done){
         res.json({"ok":1, postId:done._id})
     }else {
@@ -458,40 +881,21 @@ router.post('/posts', async(req, res, next)=>{
     }
 })
 
-router.post('/postmedia', postUpload.any('image'), async function (req, res, next) {
-    let user = req.user;
-    let file = req.files;
-
-    //console.log('the file is ', file)
-  })
 
 
-
-router.post('/profileAvatar', uploadImg.single('avatar'), async function (req, res, next) {
-    let user = req.user;
+router.get('/setLocation', async(req, res, next)=>{
     let uid = req.user._id;
-    let file = req.file;
-    if(file){
-        let update = await User.updateOne({_id:user._id}, {avatarUrl: "http://localhost:5000/"+user._id+".png"});
-        let found = await User.findOne({_id:uid});
-        let chatroomsUser = found.chatRooms;
-        let chatRooms = await ChatRooms.find({_id:{$in:chatroomsUser}})
-        let first = await ChatRooms.update({
-            _id:chatroomsUser, firstUsr:found._id.toString()
-        }, 
-        {firstAvatarUrl:found.avatarUrl})
-        let second = await ChatRooms.update({
-            _id:chatroomsUser, secondUsr:found._id.toString()
-        }, {secondAvatarUrl:found.avatarUrl})
-
-        console.log('first : ',first )
-        console.log('second : ', second)
-
-        res.json({ok:1});
-    }else {
-        res.json({ok:0})
-    }
-  })
+    let lat = req.query.lat; 
+    let lon = req.query.lon;
+    if(lat === undefined || lat === null){lat = ""}
+    if(lon === undefined || lon === null){lon = ""}
+    lat = lat.length > 9? lat.substring(0, 9):lat;
+    lon = lon.length > 9? lon.substring(0, 9):lon;
+    let found = await User.findOneAndUpdate({_id:uid}, {lat: lat, long:lon})
+    console.log("POSITION UPDATED SUCCESSFULLY !!! ***********************")
+    res.json({ok:1, msg:"Lat and Lon updated successfully"});
+    return;
+})
 
 
   router.post('/setlocation', async (req, res, next)=>{
@@ -552,7 +956,8 @@ router.post('/profileAvatar', uploadImg.single('avatar'), async function (req, r
           if(getImportantposts.length<6){
               let random = await Posts.aggregate([{$sample:{size:10}}])
               random.forEach(element => {
-                element.userUpVoted =  element.upVoted.includes(uid.toString());
+                element.usrUpVoted =  element.upVoted.includes(uid.toString());
+                element.usrFollow = found.following.includes(element._id.toString());
            });
            console.log("random posts : ", random)
               res.json({ok:1, posts:random})
@@ -566,10 +971,9 @@ router.post('/profileAvatar', uploadImg.single('avatar'), async function (req, r
           
         postsFeed=postsFeed.concat(getImportantposts)
         postsFeed=postsFeed.concat(getLessPosts)
-        postsFeed.forEach(element => {
-            console.log('element is ', element)
-       });
-        console.log("returned posts ", postsFeed)
+
+     
+
 
         res.json({ok:1, posts:postsFeed})
     }else {
@@ -592,9 +996,12 @@ router.post('/profileAvatar', uploadImg.single('avatar'), async function (req, r
   })
 
   /**
- * Post a comment
- * @param {*} u1 
- * @param {*} u2 
+ * body : 
+ * postID -> id of the post
+ * body -> comment text
+ * 
+ * 
+ * 
  */
 router.post('/comment', async(req, res, next)=>{
     let uid = req.user._id;
@@ -609,6 +1016,7 @@ router.post('/comment', async(req, res, next)=>{
         let obj = {}
         obj.postId=postFound._id.toString();
         obj.postedBy = found._id.toString();
+        obj.postedByUsername = found.username.toString();
        obj.avatarUrl= found.avatarUrl;
        obj.body= comm;
        obj.postDate= Date.now();
@@ -642,13 +1050,99 @@ router.post('/comment', async(req, res, next)=>{
         a.forEach(element => {
         io.to(element.user_id.toString()).emit('comment', postFound._id.toString())
         });
-        res.json({ok:1, msg:'posted'})
+        /**
+         * trimite tuturor utilizatorilor care se afla pe aceasta pagina notificare ca a fost postat un comentariu
+         */
+        io.to(postFound._id.toString()).emit("new", found._id.toString())
+        let newPostComment = await Posts.findOne({_id: pid}).lean();
+        //aici returneaza pe toate
+        /***
+         * TODO
+         * RETURNEAZA MAI MARE CA UN _Id pentru paginatie
+         * 
+         */
+        let newCommentList = newPostComment.comments
+        newCommentList.reverse()
+        res.json({ok:1, msg:'posted', newArray:newCommentList})
         return;
     }else {
         res.json({ok:0, err:'User or Post not found'})
         return
     }
 })
+
+/**
+ * New Comments fetch 
+ * Daca cineva primeste notificare ca cineva a postat un comentariu in momentul in care amandoi se aflta pe pagina
+ * append de commenturi noi
+ */
+router.get('/appendComment?', async(req, res, next)=>{
+//pid = post id
+//fcid = first comment id
+let pid = req.query.pid;
+let lcid = req.query.lcid.toString();
+let post = await Posts.findOne({_id:pid}).lean();
+if(post){
+    let newCommentRaw = post.comments.reverse();
+    let commentLength = newCommentRaw.length;
+    var index = newCommentRaw.findIndex(p => p._id.toString() == lcid);
+    let newComm = newCommentRaw.slice(0, index);
+    console.log("NEW comm is : ", newComm)
+    res.json({ok:1, newComments: newComm})
+    return;
+}else {
+    res.json({ok:0, err:"Post not found"})
+    return
+}
+})
+
+/**
+ * Comment pagination: 
+ * req: id of the latest comment
+ * res: get the next 10 comments
+ */
+router.get('/recomment?', async(req, res, next)=>{
+    //pid post id
+    //lcid : latest comment id
+let pid = req.query.pid;
+let lcid = req.query.lcid.toString();
+let post = await Posts.findOne({_id:pid}).lean();
+if(post){
+    let commentArrayRaw = post.comments.reverse();
+    let commentLength = commentArrayRaw.length;
+    if(commentLength <= 10 ){
+        res.json({ok:1,newComments:[], bottom:true })
+        return
+    }
+    
+    //get the next 10 comments after the latest id
+    var index = commentArrayRaw.findIndex(p => p._id.toString() == lcid);
+
+    if(commentArrayRaw[commentLength-1]._id === commentArrayRaw[index]._id ){
+        res.json({ok:1,newComments:[], bottom:true })
+        return
+    }
+
+    let responseComments;
+    if((commentLength-1) < index){
+        responseComments =  commentArrayRaw.slice(index, commentLength-1)
+    }else {
+        responseComments =  commentArrayRaw.slice(index, index+10)
+    }
+     
+
+
+    res.json({ok:1, newComments: responseComments})
+    return
+return
+
+}else {
+    res.json({ok:0, err:"Post not found"})
+    return;
+}
+})
+
+
 /**
  * Subscribe to comment notifications from posts
  */
@@ -763,13 +1257,14 @@ router.post('/subscribe?', async(req, res, next)=>{
         let check = fFound.chatRooms.some(r=> tFound.chatRooms.indexOf(r) >= 0)
         if(!check){
             //Create new ChatRoom
-            let chat = await ChatRooms.create({firstUsr:fFound._id.toString(), secondUsr:tFound._id.toString(), firstAvatarUrl:fFound.avatarUrl, secondAvatarUrl:tFound.avatarUrl});
+            let chat = await ChatRooms.create({firstUsr:fFound._id.toString(), secondUsr:tFound._id.toString(), firstAvatarUrl:fFound.avatarUrl, secondAvatarUrl:tFound.avatarUrl, firstUsername:fFound.username, secondUsername:tFound.username});
             if(chat){
                 //created
-                await User.findOneAndUpdate({_id:fFound._id}, {$addToSet:{chatRooms:chat._id}})
-                await User.findOneAndUpdate({_id:tFound._id}, {$addToSet:{chatRooms:chat._id}})
+                await User.findOneAndUpdate({_id:fFound._id}, {$addToSet:{chatRooms:chat._id.toString()}})
+                await User.findOneAndUpdate({_id:tFound._id}, {$addToSet:{chatRooms:chat._id.toString()}})
                 await NotificationQ.findOneAndUpdate({user_id:fuid.toString()}, {$addToSet:{rooms:{roomId:chat._id.toString(), number:0}}})
                 await NotificationQ.findOneAndUpdate({user_id:tuid.toString()}, {$addToSet:{rooms:{roomId:chat._id.toString(), number:0}}})
+                res.json({ok:1, msg:"Chat room created"})
                // console.log("ADDED")
             }
         }else {
@@ -790,12 +1285,12 @@ router.get('/room?', async(req, res, next)=>{
     let muid= await req.user._id;
     let croom = await req.query.id;
     let ffound = await User.findOne({_id:muid})
-    console.log("CHATROOM")
     if(ffound){
         //User found
         if(ffound.chatRooms.includes(croom.toString())){
             let chat = await ChatRooms.findOne({_id:croom});
-            res.json({ok:1, chat:chat})
+            let msg = await chat.messages
+            res.json({ok:1, chat:msg})
             return;
         }
 
@@ -814,31 +1309,66 @@ router.get('/room?', async(req, res, next)=>{
          res.json({ok:0, err: 'user not found'})
          return
      }
-     let avatars = []
-     let protoAvatars = await ChatRooms.find({_id: found.chatRooms});
-     protoAvatars.forEach(element => {
-         if(element.firstUsr!==uid){
-             avatars.push(element.firstAvatarUrl)
-         }else if(element.secondUsr!==uid){
-             avatars.push(element.secondAvatarUrl)
-         }
-     });
+
+     let protoAvatars = await ChatRooms.find({_id: found.chatRooms}).sort( { latestUpdate: -1 } )
+     
      let newChats=[];
-     let i=0;
-     found.chatRooms.forEach(element => {
-         let obj={}
-         obj.chat = element;
-        obj.avatar= avatars[i++];
-        newChats.push(obj)
-     });
-    console.log('avatars are ', newChats)
-     res.json({ok:1, chat:newChats,avatars:avatars, uid: found._id.toString()})
+     
+     for(let i=0; i<protoAvatars.length; i++){
+         if(protoAvatars[i].firstUsr !== uid){
+            let ffound = await User.findOne({_id:protoAvatars[i].firstUsr});
+            let obj={}
+            obj.chat = protoAvatars[i]._id.toString();
+            obj.avatar = ffound.avatarUrl
+            obj.username = ffound.username
+            obj.isAdmin = ffound.isAdmin
+            obj.id = ffound._id.toString()
+            obj.online= ((Date.now() - ffound.latestActive)<5*60*1000);
+            newChats.push(obj)
+         }
+         if(protoAvatars[i].secondUsr!== uid){
+            let ffound = await User.findOne({_id:protoAvatars[i].secondUsr});
+            let obj={}
+            obj.chat = protoAvatars[i]._id.toString();
+            obj.avatar = ffound.avatarUrl
+            obj.username = ffound.username
+            obj.isAdmin = ffound.isAdmin
+            obj.id = ffound._id.toString()
+            obj.online= ((Date.now() - ffound.latestActive)<5*60*1000);
+            newChats.push(obj)
+         }
+     }
+
+
+     let notificationsQ = await NotificationQ.findOne({user_id:found._id}).lean();
+   
+     res.json({ok:1, chat:newChats, uid: found._id.toString(), notificationsQ:notificationsQ.rooms})
+ })
+
+
+
+
+ router.get('/notificationsForChatRooms', async(req, res, next)=>{
+    let id = req.user._id;
+    let found = await User.findOne({_id:id});
+    if(found){
+let notificationsQ = await NotificationQ.findOne({user_id:found._id.toString()});
+        if(notificationsQ){
+            res.json({ok:1, notificationsUpdate : notificationsQ.rooms})
+        }else {
+            res.json({ok:0, err:"Notifications queue not found"})
+            return
+        }
+    }else {
+        res.json({ok:0, err:"User not found"})
+        return;
+    }
  })
 
 /**
  * Clear messages notifications room queue
  */
-router.get('/clearQueue?', async (req, res, next)=>{
+router.get('/clearChatMsgQueue?', async (req, res, next)=>{
     console.log("CLEAR Q")
     let uid = req.user._id;
     let qid= req.query.id;
@@ -849,9 +1379,10 @@ router.get('/clearQueue?', async (req, res, next)=>{
     if(found && qid){
     let queueFound = await NotificationQ.findOne({user_id:uid});
     let hokey = await NotificationQ.updateOne({user_id:uid.toString(), "rooms.roomId":qid}, {"rooms.$.number":0});
-    console.log("THIS IS HOKEY : ", hokey)
+    let notificationsQ = await NotificationQ.findOne({user_id:found._id.toString()});
+    res.json({ok:1, notificationsUpdate : notificationsQ.rooms})
+    return
 
-return
     }else {
 res.json({ok:0, err: 'user not found'})
 return;
@@ -886,22 +1417,32 @@ router.get('/msgQueue', async(req, res, next)=>{
 router.post('/sendMsg', async(req, res, next)=>{
     /**
      * body:
-     * tuid: 
+     * tuid: to ID
+     * ruid: roomid
      * text: asdasdasdasd
      */
     
     console.log("! MSG UID : ", req.user._id)
     let io = req.app.get('socketio')
     let body = await req.body;
+    console.log("BODY IS : ", body)
     let uid = await req.user._id;
     let found = await User.findOne({_id:uid})
     let chat = await ChatRooms.findOne({_id:body.ruid.toString()})
     if(found && chat ){
         if(found.chatRooms.includes(chat._id.toString())){
-        await ChatRooms.updateOne({_id:body.ruid.toString()}, {$push:{messages:[{text:body.text, date: Date.now(), from:found._id}]}})
+            console.log("First USR")
+        await ChatRooms.updateOne({_id:body.ruid.toString()}, {$push:{messages:[{text:body.text, date: Date.now(), from:found._id}]}, latestUpdate:Date.now()})
        
        if(uid.toString() === chat.firstUsr.toString()){
-        io.to(chat.secondUsr.toString()).emit('push_notification', body.ruid.toString())
+
+        let avatarUrl = await User.findOne({_id:chat.firstUsr});
+        let emitObj = {}
+            emitObj.ruid = body.ruid.toString();
+            emitObj.from = chat.firstUsername.toString();
+            emitObj.avatarUrl = avatarUrl.avatarUrl;
+        io.to(chat.secondUsr.toString()).emit('push_notification', emitObj)
+        io.to(chat.secondUsr.toString()).emit('message_notification')
         /**
          * toSecond user
          * find the rooms element of user notificationQ
@@ -915,9 +1456,18 @@ router.post('/sendMsg', async(req, res, next)=>{
     } //send to second user
         else {
             //To first User
-            io.to(chat.firstUsr.toString()).emit('push_notification',body.ruid.toString() )
+            let emitObj = {}
+            emitObj.ruid = body.ruid.toString();
+            emitObj.from = chat.secondUsername.toString();
+            let avatarUrl = await User.findOne({_id:chat.secondUsr});
+            emitObj.avatarUrl = avatarUrl.avatarUrl;
+            console.log("Second USR")
+            io.to(chat.firstUsr.toString()).emit('push_notification', emitObj )
+            io.to(chat.firstUsr.toString()).emit('message_notification')
            let ok =  await NotificationQ.findOneAndUpdate({user_id:chat.firstUsr, "rooms.roomId":chat._id.toString()}, {$inc:{"rooms.$.number":1}})
         }
+
+  
         res.json({ok:1, msg:'sent'})
         }
     }
@@ -934,8 +1484,6 @@ router.post('/sendMsg', async(req, res, next)=>{
  */
 router.get('/notifications', async(req, res, next)=>{
     let uid = req.user._id;
-    console.log("NOTIF")
-    console.log("uid is ", uid)
     let found = await User.findOne({_id:uid});
     if(found){
         let notificationsUser =await NotificationQ.findOne({user_id:uid.toString()})
@@ -947,11 +1495,35 @@ router.get('/notifications', async(req, res, next)=>{
             }
         });
         let commentsArray = notifications;
-        console.log('commentsArray ', commentsArray)
         let arr= await commentsArray.sort((a, b)=>{return b.latestComment-a.latestComment})
-        
-        console.log('HOKEy ', arr)
-        res.json({ok:1, notificationsComments:notificationsUser.comments.slice(1), notifications:notificationsUser})
+        let newGroupedQueue=[]
+        let queue = notificationsUser.queue.reverse();
+
+        let i=0;
+        queue.forEach(element => {
+          let flag =0;
+          if(newGroupedQueue.length === 0){
+            newGroupedQueue.push(element);
+            flag = 1;
+          }
+          if(element.type === newGroupedQueue[i].type && element.url === newGroupedQueue[i].url && flag === 0 )
+          {
+            newGroupedQueue[i].number++;
+            flag=1;
+          }
+
+          if(flag === 0){
+            newGroupedQueue.push(element);
+            i++;
+          }
+        });
+       
+
+        console.log("NOTIFICATIONS ",newGroupedQueue )
+        if(newGroupedQueue.length > 20){
+            newGroupedQueue.splice(20,newGroupedQueue.length );
+        }
+        res.json({ok:1, notificationsComments:notificationsUser.comments.slice(1), notifications:newGroupedQueue})
         return
 
     }else {
@@ -959,6 +1531,20 @@ router.get('/notifications', async(req, res, next)=>{
         return;
     }
 })
+
+
+router.post('/clearAuthResponseNotification', async(req, res, next)=>{
+    let nid = req.body.nid;
+    let id = req.user._id;
+    let notif = await NotificationQ.findOne({user_id:id});
+    const query = {  "queue._id": nid.toString() };
+    const updateDocument = {
+      $set: { "queue.$.new": false }
+    };
+    const result = await NotificationQ.updateOne(query, updateDocument);
+    return;
+})
+
 
 /**
  * Get comment notifications
@@ -1003,6 +1589,137 @@ async function checkChat(u1, u2){
 
 }
 
+
+/**
+ * deAnon request route handler
+ */
+
+router.post('/deAnonRequest', async(req, res, next)=>{
+    let uid = req.user._id;
+    let first = req.body.first;
+    let last = req.body.last;
+    let country = req.body.country;
+    let region = req.body.region;
+    let found = await User.findOne({_id:uid});
+    console.log("************* DE ANON ***********")
+    console.log("FIsrt : ", first)
+    console.log("last : ", last)
+    console.log("country : ", country)
+    console.log("region : ", region)
+
+    if(found){
+        let deAnonUserQ = await DeAnonQueue.findOne({user_id:uid});
+        if(deAnonUserQ){
+            res.json({ok:0, err:"Already in queue"});
+            return;
+        }else {
+            await DeAnonQueue.insertMany({user_id:uid, firstName:first, lastName:last, country:country, region:region, mediaFile:"0"});
+            await User.findOneAndUpdate({_id:uid}, {pendingAnon:true})
+            res.json({ok:1, msg:"User inserted in queue, waiting for approval"});
+            return;
+        }
+    }else { 
+        res.json({ok:0, err:'User not found'});
+        return;
+    }
+
+
+res.json({ok:1})
+})
+
+
+
+
+/**
+ * Achivements section
+ */
+
+router.get('/MyAchivements', async(req, res, next)=>{
+    let uid = req.user._id;
+    let found = await User.findOne({_id:uid});
+    let achiv = await Achivements.find();
+    if(found){
+        let achivementsArr = found.achivements;
+        res.json({ok:1, postPoints:found.postPoints, my:found.achivements, achivements: achiv})
+        return;
+    }else {
+        res.json({ok:0, err:"User not found"});
+        return;
+    }
+})
+
+
+/**
+ * Experimental top posts function
+ */
+
+router.get('/create12hTop', async(req, res, next)=>{
+    var today = new Date();
+var yesterday = 1;
+var check = new Date(today.setDate(today.getDate() - yesterday)).toISOString();
+let fPosts = await Posts.find({datePosted:{$gte:check}}).lean()
+let Top = await fPosts.sort((a,b)=> (a.upVotes < b.upVotes ? 1: -1))
+
+if(Top.length > 10 ){
+    Top.splice(10, Top.length);
+}
+let postsObj = [];
+Top.forEach(element => {
+    postsObj.push(element._id.toString())
+});
+Popular.insertMany({country:"Global", region:"Global", postsId:postsObj, datePopular:Date.now()});
+res.json({ok:Top.length, top: Top});
+return
+})
+
+
+/**
+ * Get the latest Popular in Global
+ */
+router.get('/popular', async(req, res, next)=>{
+    let fpop = await Popular.find({country:"Global"}).sort({_id:-1}).limit(1);
+    let posts = await Posts.find({_id:{$in:fpop[0].postsId}})
+
+    res.json({ok:1, Popular:fpop, Posts:posts})
+})
+
+
+router.get('/reloadAuth?', async(req, res, next)=>{
+    let id = req.query.id;
+    let post = await Posts.find({_id:id.toString()});
+    if(post){
+        console.log('POst is ', post)
+        res.json({ok:1, auth:post[0].authoritiesResponse});
+        return;
+    }else {
+        res.json({ok:0, err:"Post not found"});
+        return
+    }
+})
+
+
+router.get('/userAchiv?', async (req, res, next) =>{
+    let id = req.query.id;
+    let found = await User.findOne({_id:id.toString()});
+    if(found){
+        let achiv = found.achivements;
+        let achivements = await Achivements.find({_id:{$in:achiv}});
+        res.json({ok:1, achivements:achivements})
+        return
+
+    }else{
+        res.json({ok:0, err:"User not found"});
+        return;
+    }
+
+})
+
+
+router.get('/dismiss_news', async(req, res, next)=>{
+    let uid = req.user._id;
+    console.log("DISMISS")
+   let notification = await notificationQueue.updateOne({user_id:uid}, {"news.$[].news_viewed":true}) 
+})
 
 module.exports=router;
 

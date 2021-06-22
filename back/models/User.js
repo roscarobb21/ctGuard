@@ -23,14 +23,12 @@ email:{
 password:{
     type:String,
     required:true
-},
-firstName:String,
-lastName:String,    
+},  
 following:[],
 upVoted:[],
 avatarUrl:{
     type:String,
-    default:"https://cdn.iconscout.com/icon/free/png-256/avatar-370-456322.png"
+    default:"default.jpg"
 },
 location:{
     type:String,
@@ -45,6 +43,8 @@ region:{
     default:"Suceava",
     text:true
 },
+lat :{type:String, default:""},
+long :{type:String, default:""},
 tags:[
     {tag:{type:String}, count:{type:Number}}
 ],
@@ -74,6 +74,46 @@ approvedPoints:{
 subscribed:[],
 isAdmin:{
     type:Boolean,
+    default:false,
+}, 
+firstName:{
+    type:String,
+},
+lastName:{
+    type:String,
+},
+isVerified:{
+    type:Boolean,
+},
+pendingAnon:{
+    type:Boolean,
+    default:false,
+},
+anonFlag:{
+    type:Boolean,
+    default:true,
+},
+achivements:[],
+achivementsShowcase:[],
+resetPassToken:{
+    type:String,
+},
+darkTheme:{
+    type:Boolean,
+    default:false,
+},
+bio:{
+    type:String,
+    default:"",
+    maxlength:255
+},
+functionTxt:{
+    type:String,
+    default:"",
+    maxlength:255
+},
+latestActive:{
+    type:Date,
 }
 });
 

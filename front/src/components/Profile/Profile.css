@@ -14,7 +14,7 @@
   
 
 .profile{
-    background-color: #fffafa;
+    background-color: #eaeaea;
     width: 100% !important;
     height: 100% !important;
     top:0;
@@ -48,3 +48,112 @@ opacity: 0.5;
     width: 100%; 
   }
 
+/*
+Settings page
+*/
+
+.country-drop{
+    outline:none;
+    border-color:transparent;
+    width:100%;
+    height: calc(1.5em + .75rem + 2px);
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: .25rem;
+}
+
+.region-drop{
+    outline:none;
+    border-color:transparent;
+    width:100% !important;
+    height: calc(1.5em + .75rem + 2px);
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: .25rem;
+}
+
+.post-item-img{
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+.settings-page-wrapper{
+    padding-bottom: 50px;
+}
+.settings-wrapper{
+    min-height:85vh;
+    margin-top:2vh;
+    padding: 50px 50px 50px 50px;
+    background-color: white;
+    border-radius:20px;
+}
+
+.gray {
+    filter: grayscale(100%);
+  }
+
+
+.my-tab-tabs{
+   border-radius:20px;
+    padding:20px;
+    background-color: #393e46;
+}
+
+.nav-link{
+    animation:border-radius 1s ease;
+}
+.nav-link{
+    border:solid !important;
+    border-width:1px !important;
+    border-color:#00adb5 !important;
+    color:#00adb5 !important;
+}
+
+.nav-link.active{
+    border:solid !important;
+    border-width:1px !important;
+    border-color:#00adb5 !important;
+    color:black !important;
+    background-color:transparent !important;
+}
+
+
+.img-tab{
+    width:32px;
+    height:32px;
+}
+
+
+.settings-sidebar{
+    padding:10px;
+    min-height: 350px;
+    align-content:space-around !important;
+    justify-content: space-between !important;
+}
+
+.settings-nav.active{
+    background-color: transparent !important;
+}
+
+.settings-sidebar-left{
+    text-align:left;
+}
+.settings-left{
+    text-align:left;
+}
+
+.theme-toggle{
+    outline:none !important;
+    margin-bottom:10px !important;
+}
+
+.blinker{
+    animation:infinite blink 0.75s;
+
+}
+
+@keyframes blink{
+    0%{opacity: 0;}
+   
+    100%{opacity: 1;}
+    }

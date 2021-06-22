@@ -18,6 +18,8 @@ const chatSchema = new mongoose.Schema({
     firstAvatarUrl:{type:String},
     secondUsr:{type:String},
     secondAvatarUrl:{type:String},
+    firstUsername:{type:String},
+    secondUsername:{type:String},
     messages:[{type:msg}],
 });
 

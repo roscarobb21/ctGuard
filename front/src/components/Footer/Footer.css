@@ -1,0 +1,21 @@
+.footer-main{
+    min-height:10vh;
+    background-color:#393e46;
+    flex: 0 1 auto;
+}
+
+.text-margin{
+    margin-top:3vh !important;
+}
+
+.footer-text-color{
+    color:white;
+}
+
+/**
+ * Footer Styles
+ */
+
+ .footer {
+ 
+  }

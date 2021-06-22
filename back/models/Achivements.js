@@ -8,6 +8,9 @@ const achivSchema = new mongoose.Schema({
   name:{
       type:String,
   }, 
+  description:{
+    type:String,
+  },
   media:{
       type:Array,
     },
@@ -17,6 +20,12 @@ const achivSchema = new mongoose.Schema({
     usersHave:{
         type:Number,
         default:0,
+    },
+    anon:{
+        type:Boolean
+    },
+    authorities:{
+        type:Boolean
     }
 });
 

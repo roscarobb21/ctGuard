@@ -13,7 +13,7 @@ const FacebookStrategy = require('passport-facebook').Strategy;
 const User = require('../models/User');
 const NotificationsQ= require('../models/notificationQueue');
 const AdminTokens= require('../models/AdminTokens');
-
+const Achivements = require('../models/Achivements');
 /**
  * Bcrypt for hashing
  */
@@ -76,12 +76,19 @@ passport.use(
         let pass=req.body.password;
         let confirm=req.body.confirm;
         let usrname=req.body.username;
+        let firstName = req.body.firstName;
+        let lastName = req.body.lastName;
+        let country = req.body.country;
+        let region = req.body.region;
+        let functionTxt = req.body.functionTxt;
         let token = req.body.token;
         if(pass==confirm){
       try {
         /**
          * check if user exists
          */
+        console.log("**********ADMIN REGISTER *******************")
+      
         let msg="Unknown Err";
         let found = await User.findOne({username:usrname});
           if(found === null){
@@ -98,13 +105,21 @@ passport.use(
               
               if(tokCheck && (Date.now() < tokCheck.validUntil)){
               let passHash = await bcrypt.hash(pass, bcrypt.genSaltSync(10));
-             await  User.create({username:usrname, email: em, password : passHash, isAdmin:true})
+             await  User.create({username:usrname, email: em, password : passHash, isAdmin:true, firstName:firstName, lastName:lastName, country:country, region:region, functionTxt:functionTxt, anon:false, anonFlag:false})
               await AdminTokens.remove({token:token})
              let user = await User.findOne({username:usrname})
              await NotificationsQ.create({user_id:user._id.toString(), rooms:{}, comments:{}})
+             let achiv = await Achivements.find().lean();
+             let reg = achiv[0];
+             achiv.reverse();
+             let trusted = achiv[1];
+             let auth = achiv[0];
+             await User.update({_id:user._id.toString()}, {$addToSet:{achivements:reg._id.toString()}})
+             await User.update({_id:user._id.toString()}, {$addToSet:{achivements:trusted._id.toString()}})
+             await User.update({_id:user._id.toString()}, {$addToSet:{achivements:auth._id.toString()}})
               return done(null, user)
               }else {
-                return(done(null, 'Error'))
+                return(done(null, 'token'))
               }
           }else {
              let usercheck= await User.findOne({username:usrname});
@@ -199,10 +214,10 @@ passport.use(
         passReqToCallback:true
       },
       async (req, email, password, done) => {
-          let em=req.body.email;
-          let pass=req.body.password;
+          let em=req.body.email.toString().length>50?req.body.email.toString().slice(0, 50):req.body.email.toString();
+          let pass=req.body.password.toString().length>25?req.body.password.toString().slice(0, 25):req.body.password.toString();
           let confirm=req.body.confirm;
-          let usrname=req.body.username;
+          let usrname=req.body.username.toString().length>15?req.body.username.toString().slice(0, 15):req.body.username.toString();
           if(pass==confirm){
         try {
           /**
@@ -214,18 +229,22 @@ passport.use(
                 //new user
                 let emailCheckFast = await User.findOne({email:em})
                 if(emailCheckFast!== null){
-                    let user = "email"
+                    let user = "Email already taken"
                     return done(null, user)
                 }
+                let defaultAvatar = "default.jpg";
                 let passHash = await bcrypt.hash(pass, bcrypt.genSaltSync(10));
-               await  User.create({username:usrname, email: em, password : passHash})
+               await  User.create({username:usrname, email: em, password : passHash, avatarUrl:defaultAvatar, darkTheme:false})
                let user = await User.findOne({username:usrname})
                await NotificationsQ.create({user_id:user._id.toString(), rooms:{}, comments:{}})
+               let achiv = await Achivements.find();
+                let registrationAchivement = achiv[0];
+                await User.update({_id:user._id.toString()}, {$addToSet:{achivements:registrationAchivement._id.toString()}})
                 return done(null, user)
             }else {
                let usercheck= await User.findOne({username:usrname});
                if(usercheck!== null){
-                user= 'username';
+                user= 'Username already taken';
                 return done(null, user)
                }
 

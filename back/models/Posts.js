@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt')
 const Comment=new mongoose.Schema({
     postId:{type:String},
     postedBy:{type:String},
+    postedByUsername:{type:String},
     avatarUrl:{type:String},
     body:{type:String},
     postDate:{type:Date}
@@ -12,6 +13,8 @@ const Comment=new mongoose.Schema({
 
 const AuthResp=new mongoose.Schema({
       postedBy:{type:String},
+      postedByUsername:{type:String},
+      avatarUrl:{type:String},
       body:{type:String},
       category:{type:String},
       previousStatus:{type:String},
@@ -43,9 +46,14 @@ followers:{
 postedBy:{
     type:String,
     required:true,
-},    
+},  
+postedByUsername:{
+    type:String,
+    required:true
+},  
 comments:[{type:Comment}],
 media:[{type:String}],
+postThumbnails:[{type:String}],
 datePosted:{
     type:Date,
     default:Date.now(),
@@ -89,6 +97,16 @@ lat:{
 long:{
     type:String,
     default:0,
+},
+country:{
+    type:String,
+    default:"Unknown",
+    required:true,
+},
+region:{
+    type:String,
+    default:"Unknown",
+    required:true,
 }
 });
 /**

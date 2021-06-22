@@ -1,6 +1,38 @@
 /*
 Feed post Cards
 */
+.recently-size{
+    width:90% !important;
+    height: 90% !important;
+}
+
+.recently-card-box{
+    transition: font-size 0.5s ease;
+}
+
+.recently-card-box:hover{
+    font-size:125%;
+    cursor:pointer;
+}
+
+.recently-text{
+    overflow: hidden;
+    background: linear-gradient(to right, #08d9d6, #08d9d6 50%, var(--text-color) 50%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-size: 200% 100%;
+    background-position: 100%;
+    transition: background-position 275ms ease;
+}
+
+.recently-text:hover{
+    background-position: 0 100%;
+    cursor: pointer;
+}
+
+
+
 .card-body{
     padding-top:0.2rem !important;
     padding-bottom:0.2rem !important;
@@ -34,3 +66,78 @@ Feed post Cards
     width:32px;
     height:50px;
 }
+
+.rec.rec-arrow {
+    border-radius: 0;
+}
+.rec.rec-arrow:hover {
+    border-radius: 50%;
+}
+
+
+.notifications-wrapper{
+    transition: border-radius 0.75s ease;
+}
+
+
+.notifications-button{
+    overflow: hidden;
+    background: linear-gradient(to right, #08d9d6, #08d9d6 50%, var(--text-color) 50%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-size: 200% 100%;
+    background-position: 100%;
+    transition: background-position 275ms ease;
+}
+
+.notifications-button:hover{
+    background-position: 0 100%;
+    cursor: pointer;
+}
+
+.notifications-animation{
+    background-color: black;
+}
+
+
+.recently-button{
+    overflow: hidden;
+    background: linear-gradient(to right, #08d9d6, #08d9d6 50%, black 50%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-size: 200% 100%;
+    background-position: 100%;
+    transition: background-position 275ms ease;
+}
+
+.recently-button:hover{
+    background-position: 0 100%;
+    cursor:default;
+}
+
+.recently-animation{
+    background-color: white;
+}
+
+
+
+
+
+.slideDown{
+    margin-top:100px;
+    transition: margin-top 0.75s ease-out;
+}
+.notifications-list{
+    max-height:300px;
+    overflow-y: scroll;
+}
+.notifications-list::-webkit-scrollbar {
+    display: none;
+  }
+
+
+  .hide-outline{
+     
+  }

@@ -9,13 +9,17 @@ import {
     Label,
     Input,
     FormText,
-    Button
+    Button,
+    InputGroupAddon,
+    InputGroup
 } from 'reactstrap';
 import { Pagination, PaginationItem, PaginationLink } from 'reactstrap';
 import NavBar from '../NavBar/Navbar';
 import BootstrapTable from 'react-bootstrap-table-next';
 import paginationFactory from 'react-bootstrap-table2-paginator';
 
+
+import ctLogo from '../../assets/security.png'
 import api from '../../constants/api';
 
 import './Admin.css'
@@ -27,23 +31,27 @@ class AdminDashboard extends Component {
         this.state = {
             loadingData:false,
             categoryFilterDrop: "Category",
-            stateFilterDrop: "State",
+            stateFilterDrop: "Status",
             posts:null,
             pages:null,
+            numberOfPages:null,
             tableLoading:true,
             postsDrop:"Posts per page",
             currentPage:1,
             numberOfEntries:5,
+            dateFilterLower:"",
+            dateFilterUpper:"",
         }
 
     }
     fetchDataWithFilters= async ()=>{
         this.setState({tableLoading:true})
-        let url = api+'/admin/post?number='+5+'&page='+this.state.currentPage;
+        let url = api.backaddr+'/admin/post?number='+5+'&page='+this.state.currentPage;
         this.state.categoryFilterDrop!=="Category"?url+="&category="+this.state.categoryFilterDrop:null;
-        this.state.stateFilterDrop!=="State"?url+="&status="+this.state.stateFilterDrop:null;
-        document.getElementById("dateFilter").value!==""?url+="&date="+document.getElementById("dateFilter").value:null;
-       
+        this.state.stateFilterDrop!=="Status"?url+="&status="+this.state.stateFilterDrop:null;
+        this.state.dateFilterLower!==""?url+="&datelower="+this.state.dateFilterLower:null;
+        this.state.dateFilterUpper!==""?url+="&dateupper="+this.state.dateFilterUpper:null;
+
         let options = {
             method: "GET",
             headers: {
@@ -55,16 +63,22 @@ class AdminDashboard extends Component {
         };
         let raw = await fetch(url, options);
         let response = await raw.json();
+        
+        console.log("DATE from : ", this.state.dateFilterLower)
+        
+        console.log("DATE to : ", this.state.dateFilterUpper)
         console.log("RESPONSE : , ", response)
         let checkResponse = response.posts.length>0?response.posts:[{header:"No posts available"}]
+      
+        
         setTimeout(function(){
-            this.setState({posts:checkResponse, tableLoading:false, pages:response.pages, numberOfEntries: 5})
+        
+            this.setState({posts:checkResponse, tableLoading:false, pages:response.pages, numberOfEntries: 5, numberOfPages:response.pages.length})
         }.bind(this), 1500)
-        //this.setState({posts:checkResponse, tableLoading:false, pages:response.pages, numberOfEntries: 5})
     }
 
-   async componentWillMount(){
-    let url = api+'/admin/post';
+   async UNSAFE_componentWillMount(){
+    let url = api.backaddr+'/admin/post';
     let options = {
         method: "GET",
         headers: {
@@ -76,7 +90,7 @@ class AdminDashboard extends Component {
     };
     let raw = await fetch(url, options);
     let response = await raw.json();
-    this.setState({posts:response.posts, tableLoading:false, pages:response.pages});
+    this.setState({posts:response.posts, tableLoading:false, pages:response.pages, numberOfPages:response.pages.length});
     }
      tabOptions = {
         onRowClick: function(row){
@@ -96,7 +110,12 @@ class AdminDashboard extends Component {
       }, {
         dataField: 'datePosted',
         text: 'Date Posted'
-      }, {
+      }, 
+      {
+        dataField:'category',
+        text:'Category'
+      },
+      {
         dataField: 'status',
         text: 'Status'
       }, {
@@ -106,26 +125,17 @@ class AdminDashboard extends Component {
         dataField: 'followers',
         text: 'Followers'
       }];
-    data=[{
-        _id:"asdasdqweassdsadqwesadasd",
-        header:"x2Cl5tBvuVHRcvq1v0cnx0a6IqM9yJ",
-        body:"x2Cl5tBvuVHRcvq1v0cnx0a6IqM9yJ",
-        postedBy:"x2Cl5tBvuVHRcvq1v0cnx0a6IqM9yJ",
-        datePosted:"x2Cl5tBvuVHRcvq1v0cnx0a6IqM9yJ",
-        status:"x2Cl5tBvuVHRcvq1v0cnx0a6IqM9yJ",
-        upVotes:"x2Cl5tBvuVHRcvq1v0cnx0a6IqM9yJ",
-        followers:'x2Cl5tBvuVHRcvq1v0cnx0a6IqM9yJ'
-    }]
+    
     fetchNewPage= async (page, entries)=>{
         if(entries === undefined){
             entries=this.state.numberOfEntries;
         }
-        console.log("DATE INPUT : ", typeof document.getElementById("dateFilter").value)
         this.setState({tableLoading:true, currentPage:page, posts:null})
-        let url = api+'/admin/post?number='+entries+'&page='+page;
+        let url = api.backaddr+'/admin/post?number='+entries+'&page='+page;
         this.state.categoryFilterDrop!=="Category"?url+="&category="+this.state.categoryFilterDrop:null;
-        this.state.stateFilterDrop!=="State"?url+="&status="+this.state.stateFilterDrop:null;
-        document.getElementById("dateFilter").value!==""?url+="&date="+document.getElementById("dateFilter").value:null;
+        this.state.stateFilterDrop!=="Status"?url+="&status="+this.state.stateFilterDrop:null;
+        this.state.dateFilterLower!==""?url+="&datelower="+this.state.dateFilterLower:null;
+        this.state.dateFilterUpper!==""?url+="&dateupper="+this.state.dateFilterUpper:null;
         console.log("FETCH URL ", url)
         let options = {
             method: "GET",
@@ -138,7 +148,8 @@ class AdminDashboard extends Component {
         };
         let raw = await fetch(url, options);
         let response = await raw.json();
-        this.setState({posts:response.posts, tableLoading:false, pages:response.pages, numberOfEntries: entries!== undefined?entries:5})
+        console.log("🚀 ~ file: AdminDashboard.jsx ~ line 151 ~ AdminDashboard ~ fetchNewPage= ~ response", response)
+        this.setState({posts:response.posts, tableLoading:false, pages:response.pages, numberOfEntries: entries!== undefined?entries:5, numberOfPages:response.pages.length})
     }
 
     tableRowEvents = {
@@ -166,15 +177,18 @@ class AdminDashboard extends Component {
           }
     render() {
         return (
-            <div>
+            <div className="background">
                 <NavBar/>
-                <span className="text-header2">Welcome to ctGuard management</span>
-              
-                <Row>
-                    <Col md="12" lg="2" className="admin-dash-filters-section">
+                <div className="text-header2 background" style={{marginTop:'20px', padding:'10px'}}><img  className="icon-medium" src={ctLogo}></img>ctGuard management</div>
+              <Container style={{minHeight:'95vh'}} fluid>
+                 <div style={{borderRadius:'20px'}}>
+                <Row className="background" style={{borderRadius:'20px', paddingBottom:'25px'}} >
+                    <Col md="12" lg="3" className="admin-dash-filters-section background-component" style={{padding:''}}>
 
                         <div style={
-                            {height: '500px'}
+                            {height: '500px',
+                            borderRadius:'20px',
+                        }
                         }>
                             <Row>
                                 <Col></Col>
@@ -184,9 +198,9 @@ class AdminDashboard extends Component {
                                 </Col>
                                 <Col></Col>
                             </Row>
+                            <br></br>
                             <Row>
                                 <Col className="float-left">
-                                    <p>Category filter</p>
                                     <UncontrolledDropdown className="">
                                         <DropdownToggle caret>
                                             {
@@ -218,11 +232,7 @@ class AdminDashboard extends Component {
                                         </DropdownMenu>
                                     </UncontrolledDropdown>
                                 </Col>
-                            </Row>
-
-                            <Row className="m-3">
                                 <Col>
-                                    <p>State filter</p>
                                     <UncontrolledDropdown className="">
                                         <DropdownToggle caret>
                                             {
@@ -236,9 +246,9 @@ class AdminDashboard extends Component {
                                             }>New</DropdownItem>
                                             <DropdownItem onClick={
                                                 () => {
-                                                    this.setState({stateFilterDrop: "In Progress"})
+                                                    this.setState({stateFilterDrop: "Progress"})
                                                 }
-                                            }>In Progress</DropdownItem>
+                                            }>Progress</DropdownItem>
                                             <DropdownItem onClick={
                                                 () => {
                                                     this.setState({stateFilterDrop: "Solved"})
@@ -252,7 +262,7 @@ class AdminDashboard extends Component {
                                             <DropdownItem divider/>
                                             <DropdownItem onClick={
                                                 () => {
-                                                    this.setState({stateFilterDrop: "State"})
+                                                    this.setState({stateFilterDrop: "Status"})
                                                 }
                                             }>Delete filter</DropdownItem>
                                         </DropdownMenu>
@@ -261,13 +271,42 @@ class AdminDashboard extends Component {
                             </Row>
                             <Row className="m-3">
                                 <Col>
-                                    <Form>
-                                        <FormGroup>
-                                            <Label for="dateFilter">Date posted</Label>
-                                            <Input type="date" name="date" id="dateFilter" placeholder="date placeholder"/>
-                                        </FormGroup>
-                                    </Form>
-                                </Col>
+                                <FormGroup>
+                                        <br></br>
+                                        <Label for="datelower" className="float-left"><span>Date range from:</span></Label>
+                                        <Input
+                                        type="date"
+                                        name="datelower"
+                                        id="datelower"
+                                        placeholder="Select Date"
+                                        value={this.state.dateFilterLower}
+                                        onChange={(evt)=>{this.setState({dateFilterLower:evt.target.value})}}
+                                        isCleareable={true}
+                                        />
+                                        <br></br>
+                                        <Label for="dateupper" className="float-left"><span>Date range to:</span></Label>
+                                        <Input
+                                        type="date"
+                                        name="dateupper"
+                                        id="dateupper"
+                                        placeholder="Select Date"
+                                        value={this.state.dateFilterUpper}
+                                        onChange={(evt)=>{this.setState({dateFilterUpper:evt.target.value})}}
+                                        />
+                                        <br></br>
+                                        <Row>
+                                            <Col>
+                                        <Button className="change-cursor" title="Remove Date filter" onClick={()=>{this.setState({dateFilterLower:""})}}>Clear from</Button>
+                                        </Col>
+                                        <Col>
+                                        <Button className="change-cursor" title="Remove Date filter" onClick={()=>{this.setState({dateFilterUpper:""})}}>Clear to</Button>
+                                        </Col>
+                                        <Col>
+                                        <Button className="change-cursor" title="Remove Date filter" onClick={()=>{this.setState({dateFilterUpper:"", dateFilterLower:""})}}>Clear both</Button>
+                                        </Col>
+                                        </Row>
+                                    </FormGroup>
+                                                                </Col>
                             </Row>
                             <Row>
                             <Col>
@@ -280,22 +319,31 @@ class AdminDashboard extends Component {
                         
                     </Col>
 
-                    <Col md="12" lg="10" className="admin-dash-table-section">
+                    <Col md="12" lg="9" className="admin-dash-table-section">
                     <Row>
                 <UncontrolledDropdown style={{padding:'20px'}}>
       <DropdownToggle caret>
         {this.state.numberOfEntries}
       </DropdownToggle>
       <DropdownMenu>
-        <DropdownItem onClick={()=>{this.fetchNewPage(1, 5)}} >5</DropdownItem>
-        <DropdownItem onClick={()=>{this.fetchNewPage(1, 10)}}>10</DropdownItem>
-        <DropdownItem onClick={()=>{this.fetchNewPage(1, 15)}}>15</DropdownItem>
-        <DropdownItem onClick={()=>{this.fetchNewPage(1, 20)}}>20</DropdownItem>
+        <DropdownItem onClick={()=>{
+            this.setState({numberOfEntries:5})
+            this.fetchNewPage(1, 5)}} >5</DropdownItem>
+        <DropdownItem onClick={()=>{
+            this.setState({numberOfEntries:10})
+            this.fetchNewPage(1, 10)}}>10</DropdownItem>
+        <DropdownItem onClick={()=>{
+            this.setState({numberOfEntries:15})
+            this.fetchNewPage(1, 15)}}>15</DropdownItem>
+        <DropdownItem onClick={()=>{
+            this.setState({numberOfEntries:20})
+            this.fetchNewPage(1, 20)}}>20</DropdownItem>
       </DropdownMenu>
     </UncontrolledDropdown>
                 </Row>
                       {this.state.posts!==null && !this.state.tableLoading &&
                     <BootstrapTable  
+                    
                     rowEvents={ this.tableRowEvents }
                     condensed={true} 
                     hover={true} 
@@ -310,23 +358,32 @@ class AdminDashboard extends Component {
                       {(this.state.posts===null && this.state.tableLoading)
                       && <Spinner/>}
                  <Pagination aria-label="Page navigation example">
-                <PaginationItem>
-                <PaginationLink first href="#" />
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationLink previous href="#" />
+            
+              <PaginationItem className="text-black-always">
+                <PaginationLink className="text-black-always"
+                title={this.state.currentPage <= 1?"You are on the first page":"Go back one page"}
+                previous disabled={this.state.currentPage <= 1?true:false} onClick={()=>{
+                    this.fetchNewPage(this.state.currentPage-1, this.state.numberOfEntries)
+                    this.setState({currentPage:this.state.currentPage-1})
+                    }}/>
               </PaginationItem>
              {this.state.pages!==null && this.generatePagination()}
              <PaginationItem>
-                <PaginationLink next href="#" />
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationLink last href="#" />
+                <PaginationLink 
+                title={this.state.currentPage >= this.state.numberOfPages?"You are on the last page":"Advance one page"}
+                next 
+                disabled={this.state.currentPage >= this.state.numberOfPages?true:false}
+                onClick={()=>{
+                this.fetchNewPage(this.state.currentPage+1, this.state.numberOfEntries)
+                this.setState({currentPage: this.state.currentPage+1})
+            }} />
               </PaginationItem>
                 </Pagination>
                
                     </Col>
                 </Row>
+                </div>
+                </Container>
             </div>
         );
     }

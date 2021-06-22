@@ -7,7 +7,8 @@ import {
 import {Link} from 'react-router-dom';
 import './Homepage.css';
 import Register from '../RegisterAndLogIn/Register';
-import api from '../../constants/api'
+import api from '../../constants/api';
+import Footer from '../Footer/Footer';
 /**
  * TODO
  * InfoFirst and InfoSecond dissapear when reaching a scroll point
@@ -31,7 +32,7 @@ const responseFacebook = (response) => {
    let token = response.accessToken;
    localStorage.setItem("fbAccess", token);
    if(token !== undefined && token !== null && token !== ""){
-    let url=api+'/fb'
+    let url=api.backaddr+'/fb'
     let options = {
         method: "POST",
         headers: {
@@ -109,6 +110,7 @@ class Homepage extends Component {
     constructor(props) {
         super(props);
         this.state = {
+            DEBUG : true,
             showScrollTool: true,
             scrollPos: null,
             renderedText: 'hi',
@@ -241,6 +243,13 @@ class Homepage extends Component {
     }
 
     render() {
+        if(this.state.DEBUG){
+            return(
+                <div className="panel" style={{}}>
+                <div><Register/></div>
+            </div>
+            )
+        }
         return (
             <div> {
                 this.state.showScrollTool ? <ShowToolTip/>: null
@@ -284,10 +293,9 @@ class Homepage extends Component {
 
                 <div className="panel">
                     {
-                    this.state.pas >= 17 ? (<div><Register/> <AlreadyHaveAcc/></div>): null
+                    this.state.pas >= 17 ? (<div><Register/></div>): null
                 } 
-                {this.state.pas>=20? (<div><ShowWhoAreWe/></div>):null}
-                {this.state.pas>=20?<LogInWithFacebook/>:null}
+                
                 </div>
             </div>
         )
@@ -296,3 +304,11 @@ class Homepage extends Component {
 }
 
 export default Homepage
+
+/**
+ * 
+ *  <AlreadyHaveAcc/> <Footer/>
+ * OLD REGISTER ITEMS
+ * {this.state.pas>=20? (<div><ShowWhoAreWe/></div>):null}
+                {this.state.pas>=20?<LogInWithFacebook/>:null}
+ */

@@ -1,6 +1,19 @@
 var mongoose = require('mongoose')
 const { ObjectId } = require('mongodb');
 
+
+
+const nq=new mongoose.Schema({
+    id:{type:Number},
+    date:{type:Date},
+    title:{type:String},
+    url:{type:String},
+    type:{type:String},
+    number:{type:Number},
+    new:{type:Boolean, default:true}
+    })
+
+
 const roomNotification=new mongoose.Schema({
 roomId:{
     type:String,
@@ -11,6 +24,13 @@ number:{
     default:0
 }
 })
+
+const newsNotification=new mongoose.Schema({
+  news_id:{type:String},
+  news_viewed:{type:Boolean, default:false},
+  news_stayOnScreen:{type:Boolean, default:false}
+    })
+
 const commentNotification=new mongoose.Schema({
     postId:{
         type:String,
@@ -32,6 +52,10 @@ const commentNotification=new mongoose.Schema({
         default:Date.now(),
     }
     })
+    const queue=new mongoose.Schema({
+        
+        })
+
 
 const notificationSchema = new mongoose.Schema({ 
     user_id:{
@@ -41,7 +65,9 @@ const notificationSchema = new mongoose.Schema({
     },
     rooms:[{type:roomNotification, default:{}}],
     comments:[{type:commentNotification, default:{}
-    }]
+    }],
+    news:[{type:newsNotification}],
+    queue:[{type:nq}],
 });
 
 

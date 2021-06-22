@@ -1,10 +1,12 @@
 var bodyParser = require('body-parser')
 const express = require('express')
+const fileUpload = require('express-fileupload');
 var cors = require('cors')
 const app = express()
 //const app = require("https-localhost")()
 app.use(express.json());
 app.use(cors());
+
 const socket = require('./secretRouter/sockets')
 
 const cryptoRandomString = require('crypto-random-string');
@@ -30,6 +32,9 @@ const writeToLog = require('./logger')
  * Schedule adminTokens
  */
 const AdminTokens= require('./models/AdminTokens');
+const Country = require('./models/Country');
+const Posts = require('./models/Posts')
+const Popular = require('./models/Popular')
 const schedule = require('node-schedule');
 
 
@@ -44,11 +49,33 @@ require('./auth/auth')
  */
 const db = require('./db/db');
 const { async } = require('crypto-random-string');
+const { SSL_OP_EPHEMERAL_RSA } = require('constants');
+const User = require('./models/User');
+const Achivements = require('./models/Achivements');
+const { resolveSoa } = require('dns');
 
 /**
  * routes
  */
 var http = require("http").Server(app);
+
+
+getRandomLatency = (min, max)=>{
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+//Insert fake latency 
+app.use( ( req, res, next ) => {
+  setTimeout(next, getRandomLatency(50, 300));
+});
+
+
+
+
+
+app.use(fileUpload())
 
 app.use('/', router)
 app.use('/api', passport.authenticate('jwt', {session: false}), secretRouter); 
@@ -76,7 +103,17 @@ io.sockets.on('connection', function(socket) {
   });
   socket.on('msg', function(room){
     console.log('msg on room : ', room)
+  });
+  socket.on('post_view', function(room){
+    socket.join(room);
+    console.log("Post room joined ", room)
   })
+  socket.on('post_connection', function(room){
+    socket.join(room);
+    console.log("Post auth notification ", room)
+  })
+
+ 
 
 });
 
@@ -93,6 +130,9 @@ io.on('stop_typing', (socket)=>{
 io.on('disconnect', () => {
   console.log('user disconnected');
 });
+
+
+
 
 app.set('socketio', io)
 
@@ -133,62 +173,24 @@ function between(min, max) {
   }
 
 
-async function ok(){
-if(NEED_DATA){
-let faker = require('faker')
-const User= require('./models/User')
-const Posts= require('./models/Posts')
-let users=[]
-for(let i =0; i<100; i++){
-    let obj = {
-        username:faker.internet.userName(),
-        email:faker.internet.email(),
-        password:faker.internet.password(),
-        avatarUrl:faker.internet.avatar(),
-    }
-    users = users.concat(obj)
-}
-console.log('my obj is ', users)
-await User.insertMany(users)
-let uids = await User.find({location:"Global"}, {_id:1})
-let adminuid = await User.findOne({username:"admin"})
-let posts=[]
-let adminPosts=[]
-
-for(let i =0; i<100; i++){
-    let tags=[]
-    let obj = {
-        header:faker.lorem.sentence(3, 10),
-        body:faker.lorem.sentence(3, 10),
-        postedBy:uids[between(0, uids.length)]._id,
-    }
-    obj.tags=obj.header.split(/[ ,]+/);
-    let adminobj={
-        header:faker.lorem.sentence(5, 10),
-        body:faker.lorem.sentence(3, 10),
-        postedBy:adminuid._id.toString(),
-    }
-    adminobj.tags= adminobj.header.split(/[ ,]+/);
-    let getTags = await User.findOne({_id:adminuid._id})
-    tags=tags.concat(getTags.tags);
-    tags= tags.concat(adminobj.tags)
-    let addTags = await User.findOneAndUpdate({_id:adminuid._id}, {tags:tags})
-    console.log(adminobj)
-    posts = posts.concat(obj)
-    adminPosts=adminPosts.concat(adminobj)
-}
 
 
-await Posts.insertMany(posts)
-await Posts.insertMany(adminPosts)
-let puid = await Posts.find({followers:0}, {_id:1})
 
-}
-}
+/*
+AdminTokens.remove().then(async ()=>{
+  let adminTokens = await AdminTokens.countDocuments();
+  if(adminTokens===0){
+      let adminArr= [];
+      for(let i=0; i<100; i++){
+      let tok = await cryptoRandomString({length: 30, type: 'base64'});
+      adminArr.push({token:tok})
+      }
+      await AdminTokens.insertMany(adminArr)
+  }
+  console.log("Refreshed the Admin Tokens from database")
+})*/
 
-ok();
-
-const job = schedule.scheduleJob('0 1 * * *', function(fireDate){
+const AdminJob = schedule.scheduleJob('0 1 * * *', function(fireDate){
   AdminTokens.remove().then(async ()=>{
     let adminTokens = await AdminTokens.countDocuments();
     if(adminTokens===0){
@@ -203,3 +205,49 @@ const job = schedule.scheduleJob('0 1 * * *', function(fireDate){
   })
 });
 
+
+
+
+
+const PopularTopJob = schedule.scheduleJob('0 */12 * * *', async function(fireDate){
+  var today = new Date();
+  var yesterday = 1;
+  var check = new Date(today.setDate(today.getDate() - yesterday)).toISOString();
+  let fPosts = await Posts.find({datePosted:{$gte:check}}).lean()
+  let Top = await fPosts.sort((a,b)=> (a.upVotes < b.upVotes ? 1: -1))
+  
+  if(Top.length > 10 ){
+      Top.splice(10, Top.length);
+  }
+  let postsObj = [];
+  Top.forEach(element => {
+      postsObj.push(element._id.toString())
+  });
+  Popular.insertMany({country:"Global", region:"Global", postsId:postsObj, datePopular:Date.now()});
+});
+
+
+
+
+/*
+const achivementsJob = schedule.scheduleJob('* * * * *',async function(fireDate){
+  //refresh achivements for all users
+  let achivementsList = await Achivements.find().lean();
+  
+   await User.updateMany({postPoints:{$gte:0}}, {$addToSet:{achivements:achivementsList[0]._id.toString()}})
+   await User.updateMany({postPoints:{$gte:10}}, {$addToSet:{achivements:achivementsList[1]._id.toString()}})
+   await User.updateMany({postPoints:{$gte:20}}, {$addToSet:{achivements:achivementsList[2]._id.toString()}})
+   await User.updateMany({postPoints:{$gte:30}}, {$addToSet:{achivements:achivementsList[3]._id.toString()}})
+   await User.updateMany({postPoints:{$gte:40}}, {$addToSet:{achivements:achivementsList[4]._id.toString()}})
+   await User.updateMany({postPoints:{$gte:50}}, {$addToSet:{achivements:achivementsList[5]._id.toString()}})
+   await User.updateMany({postPoints:{$gte:60}}, {$addToSet:{achivements:achivementsList[6]._id.toString()}})
+   await User.updateMany({postPoints:{$gte:70}}, {$addToSet:{achivements:achivementsList[7]._id.toString()}})
+   await User.updateMany({postPoints:{$gte:80}}, {$addToSet:{achivements:achivementsList[8]._id.toString()}})
+   await User.updateMany({postPoints:{$gte:90}}, {$addToSet:{achivements:achivementsList[9]._id.toString()}})
+   await User.updateMany({postPoints:{$gte:100}}, {$addToSet:{achivements:achivementsList[10]._id.toString()}})
+   await User.updateMany({isAdmin:true}, {$addToSet:{achivements:achivementsList[11]._id.toString()}})
+   await User.updateMany({isAdmin:true}, {$addToSet:{achivements:achivementsList[12]._id.toString()}})
+     console.log("Users achivements Updated ! ");
+});
+
+*/

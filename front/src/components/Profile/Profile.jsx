@@ -1,57 +1,53 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Row, Col} from 'reactstrap';
 import {Link} from 'react-router-dom'
 import profileImg from '../../assets/ProfileImg.png'
 import Tabs from 'react-bootstrap/Tabs';
 import Tab from 'react-bootstrap/Tab';
 import {
-    TabContent,
-    TabPane,
-    Nav,
-    NavItem,
-    NavLink,
-    Card,
     Button,
-    CardTitle,
-    CardText,
-    CardImg,
-    CardBody,
-    CardSubtitle,
     Modal,
     ModalHeader,
     ModalBody,
-    ModalFooter
+    ModalFooter,
+    Spinner,
+    FormGroup,
+    Label,
+    Input,
+    FormText 
 } from 'reactstrap';
-
-
-
+import Skeleton from 'react-loading-skeleton';
+import 'react-medium-image-zoom/dist/styles.css';
 import ImageUploader from 'react-images-upload';
-import classnames from 'classnames';
-// import Carousel from 'react-instagram-carousel';
-import NavBar from '../NavBar/Navbar'
-
+import NavBar from '../NavBar/Navbar';
+import Footer from '../Footer/Footer';
 import {
     MapContainer,
-    Map,
     TileLayer,
     Marker,
-    Popup
 } from 'react-leaflet'
-import {CountryDropdown, RegionDropdown, CountryRegionData} from 'react-country-region-selector';
-import Geocode from "react-geocode";
 import api from '../../constants/api';
-import PostItem from './PostItem';
 
 
-import settingsImg from '../../assets/settings.svg';
+import { Progress } from 'reactstrap';
+import {InView} from 'react-intersection-observer';
+
+
+import myPostsImg from '../../assets/myposts.png';
+import locationImg from '../../assets/locationImg.png';
+import achivementsImg from '../../assets/objective.png';
+
+import Showcase from '../Achivements/Showcase';
 
 import './Profile.css'
 
 
+import BatImg from '../../assets/1.jpg';
+import PostItem from '../PostItem/PostItem';
+import { KeyboardReturn, KeyboardReturnRounded } from '@material-ui/icons';
+import PostItemScheleton from '../PostItem/PostItemScheleton';
 
-
-
-
+const random = require("simple-random-number-generator");
 class Profile extends React.Component {
     constructor(props) {
         super(props)
@@ -69,8 +65,13 @@ class Profile extends React.Component {
             latitude: null,
             longitude: null,
             showMap: false,
-            upVoted:null,
-            follow: null, 
+            upVoted: null,
+            follow: null,
+            update: false,
+            showcase:null,
+            newBio:null,
+            bio:null,
+            changeBio:false,
         }
         this.onDrop = this.onDrop.bind(this);
         this.uploadImg = this.uploadImg.bind(this);
@@ -82,7 +83,7 @@ class Profile extends React.Component {
             const data = new FormData();
             data.append('avatar', this.state.pictures[0]);
 
-            let url = api + '/api/profileAvatar'
+            let url = api.backaddr + '/api/profileAvatar'
             let options = {
                 method: "POST",
                 headers: {
@@ -105,7 +106,7 @@ class Profile extends React.Component {
 
     }
     async fetchUserPosts() {
-        let url = api + '/api/posts'
+        let url = api.backaddr + '/api/posts'
         let options = {
             method: "GET",
             headers: {
@@ -118,7 +119,6 @@ class Profile extends React.Component {
         let responseRaw = await fetch(url, options);
         let response = await responseRaw.json();
         if (response.ok == 1) {
-            console.log('posts are ', response.posts)
             return response.posts
         } else {
             alert('Something is not ok with the backend server')
@@ -134,9 +134,20 @@ class Profile extends React.Component {
             console.log("Longitude is :", position.coords.longitude);
             sessionStorage.setItem('lat', position.coords.latitude)
             sessionStorage.setItem('long', position.coords.longitude)
+            let url = api.backaddr + api.authUser +'/setLocation?lat='+position.coords.latitude+'&lon='+position.coords.longitude;
+            let options = {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    Pragma: "no-cache",
+                    token: localStorage.getItem("token").toString()
+                }
+            };
+            fetch(url, options)
         });
 
-        let url = api + '/api'
+        let url = api.backaddr + '/api'
         let options = {
             method: "GET",
             headers: {
@@ -149,16 +160,19 @@ class Profile extends React.Component {
         let responseRaw = await fetch(url, options);
         let response = await responseRaw.json();
         if (response.ok == 1) {
+            
             let postsData = await this.fetchUserPosts();
-            console.log('user data : ', response)
             this.setState({
                 username: response.user.username,
                 posts: postsData,
                 avatarUrl: response.user.avatarUrl,
                 country: response.user.country,
                 region: response.user.region,
-                upVoted:response.user.upVoted,
+                upVoted: response.user.upVoted,
                 follow: response.user.following,
+                showcase:response.user.showcase,
+                bio:response.user.bio,
+                newBio:response.user.bio
             })
         } else {
             alert('Something is not ok with the backend server')
@@ -168,7 +182,7 @@ class Profile extends React.Component {
     }
 
     componentDidMount() {
-        
+
         if (sessionStorage.getItem('lat') !== null && undefined) {
             this.setState({activeTab: 1, isLoading: false, showMap: true})
             return
@@ -184,37 +198,27 @@ class Profile extends React.Component {
 
     }
 
-    generateMyPostsCards = (posts) => { // fetch my latest posts
+
+    newGenerateMyPostsCards = (posts) => {
+
         if (this.state.posts === null || this.state.posts.length === 0) {
             return (
-                <div>
-                    <p>You don't have any posts yet</p>
-                </div>
+                <div className="background-component" style={{display:'flex', minHeight:'350px', width:'100%', borderRadius:'20px', marginTop:'20px', marginBottom:'20px'}}>
+                <p className="align-self-center text-header2" style={{marginLeft:'auto', marginRight:'auto'}}>You didn't post anything yet</p>
+            </div>
             )
         }
-        return this.state.posts.map((post) => {
-            let liked= this.state.upVoted.includes(post._id.toString())?true:false;
-            let follow= this.state.follow.includes(post._id.toString())?true:false;
-            post.upVoted=liked
-            post.follow= follow
+        console.log("NEW GENERATE ", posts)
+        return(this.state.posts.map(post => {
+            console.log("POST MAPPED NOW IS ", post)
             return (
-                <div>
-                    <div className="my-post-item">
-                        <Row>
-                            <Col md="2"></Col>
-                            <Col md="8">
-                                <PostItem props={post} />
-                            </Col>
-                            <Col md="2"></Col>
-                        </Row>
-                    </div>
-
-                </div>
-            );
-        })
-
+                <PostItem post={post}/>
+            )
+        }))
 
     }
+
+
     handleModal = () => {
         this.setState({
             closeModal: !this.state.closeModal
@@ -227,6 +231,77 @@ class Profile extends React.Component {
     selectRegion(val) {
         this.setState({region: val});
     }
+    
+    changeBioFetch = ()=>{
+        let url=api.backaddr+api.authUser+ api.routes.changeBio
+        let options = {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              Pragma: "no-cache",
+              token:localStorage.getItem("token")
+            },
+            body: JSON.stringify({
+              bio: this.state.newBio,
+            }),
+          };
+          fetch(url, options)
+          this.setState({bio:this.state.newBio.trim(), changeBio:false})
+          
+    }
+
+    changeBioComponent = ()=>{ 
+
+        if(this.state.changeBio){
+            return(<div>
+                <FormGroup>
+                <Input type="textarea" name="bioText" id="bioText" value={this.state.newBio}
+                style={{resize:'none'}}
+                onChange={(evt)=>{this.setState({newBio:evt.target.value})}}
+                maxLength="250"
+                spellCheck="false"
+                />
+                   <FormText className="float-right" >
+                <span style={{color:this.state.newBio.length===250?"#ff2e63":"#222831"}} ><span className={this.state.newBio.length===250?"blinker":""}>{this.state.newBio.length}</span>/250</span>
+        </FormText>
+              </FormGroup>
+              
+              <Button color="primary" onClick={()=>{this.changeBioFetch()}}>Save</Button>
+              &nbsp;
+              <Button color="danger" onClick={()=>{this.setState({changeBio:false})}}>Cancel</Button>
+              </div>
+            )
+        }
+    }
+
+    retBio=()=>{
+        let params = {
+            min: 1,
+            max: 3,
+            integer: true
+          };
+          let count = random(params);
+          let height;
+          switch (count){
+              case 1:
+                  height=35;
+                  break;
+                case 2:
+                    height=20;
+                    break;
+                case 3:
+                    height=15;
+                    break;
+          }
+        if(this.state.bio === null){
+            return(<Skeleton height={height} className="skeleton-theme" count={count}/>)
+        }
+
+        return(
+            this.state.bio?.length===0?<span onDoubleClick={()=>{this.setState({changeBio:true})}} className="change-cursor ">Double click to set bio</span>:<span onDoubleClick={()=>{this.setState({changeBio:true})}} className="change-cursor" title="Double click to change bio">{this.state.bio}</span>
+        )
+    }
 
     render() {
         const position = [51.505, -0.09]
@@ -236,12 +311,13 @@ class Profile extends React.Component {
             return null;
         }
 
-      
+
         return (
 
-            <div className="profile">
+            <div className="profile background" style={{minHeight:'100vh'}}>
 
-                <Modal isOpen={
+                <Modal
+                isOpen={
                         this.state.closeModal
                     }
                     toggle={
@@ -249,7 +325,8 @@ class Profile extends React.Component {
                 }>
                     <ModalHeader toggle={
                         this.closeModal
-                    }>Change Profile Picture
+                    }>
+                        <span>Change Profile Picture</span>
                     </ModalHeader>
                     <ModalBody>
                         <ImageUploader withIcon={true}
@@ -264,6 +341,7 @@ class Profile extends React.Component {
                             withPreview={true}
                             singleImage={true}/>
                     </ModalBody>
+
                     <ModalFooter>
                         <Button color="danger"
                             onClick={
@@ -285,171 +363,229 @@ class Profile extends React.Component {
                 <NavBar items={
                     this.state.avatarUrl
                 }/>
-                <div>
+                <div className="background">
                     <Row>
-                        <Col md="3"></Col>
-                        <Col md="6" className="profile-container">
-                            <div>
-                                <img src={
-                                        this.state.avatarUrl === null ? profileImg : this.state.avatarUrl
+                        <Col md="0" lg="3"></Col>
+                        <Col md="12" lg="6" className="profile-container background">
+                            <div style={
+                                {
+                                    
+                                    padding: '30px 0px 20px 0px',
+                                    borderRadius: '20px'
+                                }
+                            }
+                            className="background-component"
+                            >
+                                   <Row>
+                            <Col className="" xs="12" md="12" lg="12" xl="4">
+                        <div className="float-md-none float-lg-none float-xl-left ml-lg-4">
+                            <img src={
+                                        this.state.avatarUrl === null ? api.cdn+api.avatarMedia.p1080+"default.jpg" : api.cdn + api.avatarMedia.p1080 + this.state.avatarUrl
                                     }
-                                    className="profile-img"
+                                    className="profile-img-stranger change-cursor"
+                                    title={this.state.username}
                                     onClick={
                                         this.handleModal
                                 }></img>
-                                <p className="text-header1">
-                                    {
-                                    this.state.username === null ? "Unknown" : "@" + this.state.username
-                                }</p>
-                                <img src={settingsImg} className="change-cursor" onClick={()=>{
-                                    //open user settings panel
-                                   window.location.assign('/settings')
-                                }}></img>
-                            </div>
-                            
-                            <div>
-                                <Tabs id="controlled-tab-example "
+                                {this.state.username && <p className="text-header2">@{this.state.username}</p>}
+                                {this.state.username=== null && <Skeleton className="skeleton-theme" height={10}/>}
+                                </div>
+                        </Col>
+                        <Col className=""   xs="12" md="12" lg="12" xl="8" style={{padding:'0px 50px 0px 50px'}}>
+                        <div className="float-xs-none float-sm-none float-md-none float-lg-none float-xl-left background-component-level-1" style={{ borderRadius:'20px', minHeight:"100px", textAlign:'left', minWidth:'100%', padding:'20px', maxHeight:'250px', overflow:'scroll'}}>
+                       <div className="" style={{textAlign:'left'}}>
+                           {this.state.changeBio?this.changeBioComponent():this.retBio()}
+                           </div>
+                        </div>
 
+                        </Col>
+                        </Row>
+                                <div id="profile-showcase" className="" style={{width:'100%', marginTop:'10px'}}>
+                                    <Row>
+                                        <Col xs="0" sm="0" md="4" lg="4" xl="4"></Col>
+                                        <Col xs="12" sm="12" md="4" lg="4" xl="4">
+                                    <Showcase showcase={this.state.showcase!==null?this.state.showcase:null}/>
+                                    </Col>
+                                    <Col xs="0" sm="0" md="4" lg="4" xl="4"></Col>
+                                    </Row>
+                                </div>
+                            </div>
+
+                            <div style={
+                                {paddingTop: '20px'}
+                            }>
+                                <Tabs fill id="controlled-tab-example "
+                                    className="text-color"
+                                    mountOnEnter={true}
+                                    unmountOnExit={true}
                                     activeKey={
                                         this.state.activeTab
                                     }
                                     onSelect={
                                         (k) => this.setState({activeTab: k})
                                 }>
-                                    <Tab eventKey="1" title="My Posts"
+                                    <Tab 
+                                    eventKey="1" 
+                                    title=
+                                    {
+                                        <span className="text-color-inverted-profile"><img src={myPostsImg} className="img-tab"></img>&nbsp;My posts</span>
+                                    }
                                         onEnter={
                                             () => {}
                                     }>
                                         {
-                                        this.generateMyPostsCards(undefined)
-                                    } </Tab>
-                                    <Tab eventKey="2" title="Location Settings">
+                                        this.state.posts && this.newGenerateMyPostsCards(this.state.posts)
+                                    } 
+                                    {this.state.posts === null && <PostItemScheleton/>}
+                                    </Tab>
+                                    <Tab  eventKey="2" title=
+                                    {<span>
+                                        <img src={locationImg} className="img-tab"></img>&nbsp;Location
+                                    </span>}
+                                    >
                                         <div>
-                                            <div>
-                                                <p>Your location is : {
+                                                <div className="background-component" style={{padding:'10px', marginTop:'30px', borderRadius:'20px', marginBottom:'30px'}}>
+                                                <div style={{marginTop:'30px'}}>
+                                                <p className="text-header2 text-color">Your location is : {
                                                     this.state.country
                                                 }, {
                                                     this.state.region
                                                 }</p>
                                             </div>
-                                            <div>
-                                                <CountryDropdown value={country}
-                                                    onChange={
-                                                        (val) => this.selectCountry(val)
-                                                    }/>
-                                                <RegionDropdown country={country}
-                                                    value={region}
-                                                    onChange={
-                                                        (val) => this.selectRegion(val)
-                                                    }/>
-                                            </div>
-                                            <div>
-                                                <Button color="primary">Update Location</Button>
-                                            </div>
-
                                             <div id="map-container">
                                                 <MapContainer center={
-                                                        [sessionStorage.getItem('lat')!==null?sessionStorage.getItem('lat'):"", sessionStorage.getItem('long')!==null?sessionStorage.getItem('long'):""]
+                                                        [
+                                                            sessionStorage.getItem('lat') !== null ? sessionStorage.getItem('lat') : "",
+                                                            sessionStorage.getItem('long') !== null ? sessionStorage.getItem('long') : ""
+                                                        ]
                                                     }
                                                     zoom={13}
                                                     scrollWheelZoom={false}>
                                                     <TileLayer attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
                                                     <Marker position={
-                                                        [sessionStorage.getItem('lat')!==null?sessionStorage.getItem('lat'):"", sessionStorage.getItem('long')!==null?sessionStorage.getItem('long'):""]
+                                                        [
+                                                            sessionStorage.getItem('lat') !== null ? sessionStorage.getItem('lat') : "",
+                                                            sessionStorage.getItem('long') !== null ? sessionStorage.getItem('long') : ""
+                                                        ]
                                                     }></Marker>
                                                 </MapContainer>
                                             </div>
+                                            </div>
                                         </div>
                                     </Tab>
-                                    <Tab eventKey="3" title="Achivements">
-                                        <p>Helper Tab</p>
+                                    <Tab  eventKey="3" title={
+                                        <span><img src={achivementsImg} className="img-tab"></img>&nbsp;Achivements</span>
+                                    }
+                                    >
+                                        <Achivements/>
                                     </Tab>
                                 </Tabs>
                             </div>
                         </Col>
-                        <Col md="3"></Col>
+                        <Col md="0" lg="3"></Col>
                     </Row>
+                <div>
+                </div>
                 </div>
             </div>
         )
     }
 }
 
+let Achivements = ()=>{
+    const [postPoints, setPostPoints]= useState(0);
+    const [allAchivements, setAllAchivements] = useState(null);
+    const [myAchivements, setMyAchivements] = useState(null);
+    /*
+    fetch user achivements
+    */
+   useEffect( async ()=>{
+       if(allAchivements === null && myAchivements === null){
+    let url = api.backaddr + api.achivements;
+    let options = {
+     method: "GET",
+     headers: {
+         "Content-Type": "application/json",
+         "Cache-Control": "no-cache, no-store, must-revalidate",
+         Pragma: "no-cache",
+         token: localStorage.getItem("token").toString()
+      }
+     };  
+     const responseRaw = await fetch(url, options);
+     const response = await responseRaw.json();
+     setPostPoints(response.postPoints);
+     setAllAchivements(response.achivements);
+     setMyAchivements(response.my);
+    }
+   })
+  
+
+    return(
+        <div>
+        <div className="background-component" style={{marginTop:'2vh', borderRadius:'20px', padding:'20px'}}>
+            <p className="text-header2">Your postPoints : {postPoints}</p>
+        </div>
+        <AchivMap points={postPoints} allAchivements={allAchivements} myAchivements={myAchivements}/>
+   
+        </div>
+    )
+}
+
+let AchivMap = (props)=>{
+    let all = props.allAchivements;
+    let my = props.myAchivements;
+    let points = props.points;
+  
+    if(all !== null){
+    return all.map(element=>{
+        return <Achivement element={element} my={my} points={points}/>
+    })
+        }
+        return(<Spinner/>)
+}
+
+
+let Achivement = (props)=>{
+console.log(" ACHIVEMENTS PROPS : ", props);
+let achiv = props.element;
+let my = props.my;
+let points = props.points;
+let progress;
+
+if(achiv.points === 0 || points >= achiv.points){
+    progress = 100;
+}else {
+    progress = points * 100 /achiv.points;
+}
+
+
+let text = ["Nice start", "Nice start", "Keep Going", "Keep Going", "Making progress", "Making progress", "Making serious progress", "You're almost there", "You're almost there", "Achieved!"];
+let color = ["primary", "primary", "info", "info", "info", "warning", "warning", "warning", "success", "success"];
+var quotient = Math.floor(progress/10) - 1;
+
+
+if(achiv !== null && my !== null){
+return(<div className="background-component" style={{padding:'30px', marginTop:'2vh', borderRadius:'20px', opacity:(my.includes(achiv._id.toString()) || points>achiv.points)?'1':'0.5'}}>
+    <Row className="align-items-center">
+        <Col sm="12" md="12" lg="4" xl="4">
+        <img src={api.cdn+'/'+achiv.media[0]} style={{width:'150px', height:'150px', borderRadius:'20px'}} className="align-items-center" className={(my.includes(achiv._id.toString()) || points>achiv.points)?'':'gray'}></img>
+        </Col>
+        <Col sm="12" md="12" lg="8" xl="8">
+        <p className="text-header2 align-items-center" style={{padding:'20px'}}>{achiv.name}</p>
+        <p className="text-color text-muted">{achiv.description}</p>
+        </Col>
+    </Row>
+    <Row style={{marginTop:'1vh'}}>
+        <Col>
+        <Progress animated color={color[quotient]} value={progress}>{text[quotient]} </Progress>
+        </Col>
+    </Row>
+    </div>
+    )
+}
+return(<Spinner/>)
+}
+
 
 export default Profile;
 
-
-/**
- *  <Card>
-
-                                    <CardBody>
-                                       
-                                        <CardTitle tag="h5">
-                                            {
-                                            post.header
-                                        }</CardTitle>
-                                        <CardSubtitle tag="h6" className="mb-2 text-muted">@{
-                                            post.postedBy
-                                        }</CardSubtitle>
-
-                                        <CardText>{
-                                            post.body
-                                        }</CardText>
-                                        <Button>Button</Button>
-                                    </CardBody>
-                                </Card>
- */
-
-/**
- * REACTSTRAPCODE COMMENTED
- * MAYBE USABLE IN FUTURE
- *  <Nav tabs>
-        <NavItem>
-          <NavLink
-            className={classnames({ active: this.state.activeTab === '1' })}
-            onClick={() => { this.toggle('1'); }}
-            style={{cursor:"pointer"}}
-          >
-            My posts
-          </NavLink>
-        </NavItem>
-        <NavItem>
-          <NavLink
-            className={classnames({ active: this.state.activeTab === '2' })}
-            onClick={() => { this.toggle('2'); }}
-            style={{cursor:"pointer"}}
-          >
-           Second tab
-          </NavLink>
-        </NavItem>
-      </Nav>
-
-      <TabContent activeTab={this.state.activeTab}>
-
-        <TabPane tabId="1">
-          <Row>
-            <Col sm="12">
-              {this.generateMyPostsCards()}
-            </Col>
-          </Row>
-        </TabPane>
-        <TabPane tabId="2">
-          <Row>
-            <Col sm="6">
-              <Card body>
-                <CardTitle>Special Title Treatment</CardTitle>
-                <CardText>With supporting text below as a natural lead-in to additional content.</CardText>
-                <Button>Go somewhere</Button>
-              </Card>
-            </Col>
-            <Col sm="6">
-              <Card body>
-                <CardTitle>Special Title Treatment</CardTitle>
-                <CardText>With supporting text below as a natural lead-in to additional content.</CardText>
-                <Button>Go somewhere</Button>
-              </Card>
-            </Col>
-          </Row>
-        </TabPane>
-          </TabContent>
- */
