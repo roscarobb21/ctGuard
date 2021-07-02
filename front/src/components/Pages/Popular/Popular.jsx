@@ -8,6 +8,7 @@ import api from '../../../constants/api';
 import flame from '../../../assets/flame.png';
 import topArrow from '../../../assets/toparrow.png';
 
+import Skeleton from 'react-loading-skeleton';
 import Blink from 'react-blink-text';
 import Footer from '../../Footer/Footer';
 import './Popular.css';
@@ -91,7 +92,16 @@ class Popular extends Component {
         </ListGroup>
         )
         }
-        return(<Spinner/>)
+        return(
+            <div>
+                <Skeleton className="skeleton-theme" style={{marginTop:'20px'}} height={50} count={1} />
+                <Skeleton className="skeleton-theme" style={{marginTop:'20px'}} height={50} count={1} />
+                <Skeleton className="skeleton-theme" style={{marginTop:'20px'}} height={50} count={1} />
+                <Skeleton className="skeleton-theme" style={{marginTop:'20px'}} height={50} count={1} />
+                <Skeleton className="skeleton-theme" style={{marginTop:'20px'}} height={50} count={1} />
+                <Skeleton className="skeleton-theme" style={{marginTop:'20px'}} height={50} count={1} />
+            </div>
+        )
     }
 
     render() {
@@ -112,7 +122,7 @@ class Popular extends Component {
                                 </div>
                                 <hr></hr>
                                 <div>
-                                  <p >Latest update : <span style={{color:"#ff2e63"}}>{this.state.datePopular}</span> &nbsp; Country:&nbsp;<span style={{color:"#ff2e63"}}>{this.state.country}</span></p>
+                                  <p >Latest update : <span className="true-accent-always">{this.state.datePopular}</span> &nbsp; Country:&nbsp;<span className="false-accent-always">{this.state.country}</span></p>
                                     </div>
                                     <div className="wrapper">
                                <div className="list-location" style={{overflowY:'scroll', marginTop:'20px', minHeight:this.state.listHeight, maxHeight:this.state.listHeight}}>

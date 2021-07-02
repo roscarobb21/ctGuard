@@ -139,13 +139,7 @@ render(){
                             <Col className="" xs="12" md="12" lg="12" xl="4">
                         <div className="float-md-none float-lg-none float-xl-left ml-lg-4">
                             <div style={{position:'relative'}}>
-                            <img src={
-                                       api.cdn+api.avatarMedia.p1080+"default.jpg" 
-                                    }
-                                    className="profile-img-stranger"
-                                    onClick={
-                                        this.handleModal
-                                }></img>
+                          <Skeleton className="skeleton-theme" circle={true} height={200} width={200}/>
                                 
                                 </div>
                                 <p className="text-header2"><Skeleton className="skeleton-theme" height={20} count={1} /></p>
@@ -235,7 +229,8 @@ render(){
                         {paddingTop: '20px'}
                     }>
                         <Tabs fill id="controlled-tab-example "
-
+                             mountOnEnter={true}
+                             unmountOnExit={true}
                             activeKey={
                                 this.state.activeTab
                             }
@@ -260,7 +255,7 @@ render(){
                             </span>
                             }>
                                <div className="justify-content-center background-component" style={{display:'flex', minHeight:'350px', borderRadius:'20px', marginTop:'30px', marginBottom:'30px'}}>
-                                        <span className="text-header2 align-self-center" style={{margin:'auto'}}>Location information <span style={{color:'#ff2e63 !important'}}>private</span></span>
+                                        <span className="text-header2 align-self-center" style={{margin:'auto'}}>Location information <span className="false-accent-always">private</span></span>
                                </div>
                             </Tab>
                             <Tab eventKey="3" title={
@@ -291,7 +286,7 @@ render(){
                                         <br></br>
                                         {this.state.user.isAdmin &&
                                         <div>
-                                        <Label for="function" className="float-left">Function:</Label>
+                                        <Label for="function" className="float-left"><span>Function</span></Label>
                                         <Input disabled type="text" name="function" id="function" value={this.state.user.functionTxt} />
                                         </div>
                                         }
@@ -395,7 +390,7 @@ let AchivMap = (props)=>{
         return <Achivement element={element} points={points}/>
     })
         }
-        return(<Spinner/>)
+        return(<SkeletonAchivement/>)
 }
 
 
@@ -441,10 +436,33 @@ return(<div className="background-component" style={{padding:'30px', marginTop:'
     </div>
     )
 }
-return(<Spinner/>)
+return(<SkeletonAchivement/>)
 }
 
-
+let SkeletonAchivement = (props)=>{
+    return(<div className="background-component" style={{padding:'30px', marginTop:'2vh', borderRadius:'20px', minHeight:'300px'}}>
+        <Row className="align-items-center">
+            <Col sm="12" md="12" lg="4" xl="4">
+            <div style={{minWidth:'100%'}}>
+            <Skeleton className="skeleton-theme" count={1} height={150} width={'100%'}/>
+            </div>
+            </Col>
+            <Col sm="12" md="12" lg="8" xl="8">
+            <div style={{minWidth:'100%'}}>
+            <Skeleton className="skeleton-theme" count={1} height={150} width={'100%'}/>
+            </div>
+            </Col>
+        </Row>
+        <br></br>
+        <Row style={{marginTop:'2vh'}}>
+            <Col>
+            <Skeleton className="skeleton-theme" height={15} count={1}/>
+            </Col>
+        </Row>
+        </div>
+        )
+    
+    }
 
 export default ProfileNotFriend;
 

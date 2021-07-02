@@ -11,7 +11,7 @@ import {
     Badge
 } from 'reactstrap';
 import {Tab, Tabs, Nav } from 'react-bootstrap'
-
+import moment from 'moment';
 import api from '../../constants/api';
 import NavBar from '../NavBar/Navbar';
 import ctGuardLogo from '../../assets/security.png';
@@ -134,7 +134,7 @@ class Search extends React.Component {
                         <Card body className="card-footer-accent" style={{padding:'10px'}}>
           <CardTitle tag="h5"><span>{element.header.length>50?element.header.substring(0, 50):element.header}</span></CardTitle>
           <CardText><span>{element.body.length>50?element.body.substring(0, 50)+'...':element.body}</span></CardText>
-          <CardSubtitle><span>{element.datePosted}</span></CardSubtitle>
+          <CardSubtitle><span>{moment(element.datePosted).format("MMMM Do YYYY, h:mm:ss a")}</span></CardSubtitle>
         </Card>
                     </div>
                 )

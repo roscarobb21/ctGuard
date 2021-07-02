@@ -41,6 +41,9 @@ class AdminDashboard extends Component {
             numberOfEntries:5,
             dateFilterLower:"",
             dateFilterUpper:"",
+            orderByUpvotes:true,
+            orderByUpvotesDesc:true,
+            ascendingDate:null,
         }
 
     }
@@ -51,6 +54,7 @@ class AdminDashboard extends Component {
         this.state.stateFilterDrop!=="Status"?url+="&status="+this.state.stateFilterDrop:null;
         this.state.dateFilterLower!==""?url+="&datelower="+this.state.dateFilterLower:null;
         this.state.dateFilterUpper!==""?url+="&dateupper="+this.state.dateFilterUpper:null;
+        this.state.orderByUpvotes===true?url+="&orderby=true":url+="&orderby=false"
 
         let options = {
             method: "GET",
@@ -90,6 +94,7 @@ class AdminDashboard extends Component {
     };
     let raw = await fetch(url, options);
     let response = await raw.json();
+    console.log("🚀 ~ file: AdminDashboard.jsx ~ line 93 ~ AdminDashboard ~ UNSAFE_componentWillMount ~ response", response)
     this.setState({posts:response.posts, tableLoading:false, pages:response.pages, numberOfPages:response.pages.length});
     }
      tabOptions = {
@@ -97,7 +102,6 @@ class AdminDashboard extends Component {
             alert(row)
         }
        }
-
      columns = [ {
       dataField: 'header',
       text: 'Post Title'
@@ -108,7 +112,7 @@ class AdminDashboard extends Component {
         dataField: 'postedBy',
         text: 'Posted By'
       }, {
-        dataField: 'datePosted',
+        dataField: 'datePostedStr',
         text: 'Date Posted'
       }, 
       {
@@ -120,13 +124,22 @@ class AdminDashboard extends Component {
         text: 'Status'
       }, {
         dataField: 'upVotes',
-        text: 'Up votes'
+        text: 'Up votes',
+        style:{
+            backgroundColor:'rgba(0, 173, 181, 0.5)'
+        },
+        headerStyle: { backgroundColor: 'rgba(0, 173, 181, 0.5)' }
       }, {
         dataField: 'followers',
-        text: 'Followers'
+        text: 'Followers',
+        style:{
+            backgroundColor:'transparent'
+        },
+        headerStyle: { backgroundColor: 'transparent' }
       }];
+      
     
-    fetchNewPage= async (page, entries)=>{
+    fetchNewPage= async (page, entries, orderby, ascending)=>{
         if(entries === undefined){
             entries=this.state.numberOfEntries;
         }
@@ -136,6 +149,9 @@ class AdminDashboard extends Component {
         this.state.stateFilterDrop!=="Status"?url+="&status="+this.state.stateFilterDrop:null;
         this.state.dateFilterLower!==""?url+="&datelower="+this.state.dateFilterLower:null;
         this.state.dateFilterUpper!==""?url+="&dateupper="+this.state.dateFilterUpper:null;
+        orderby===null?url+="&orderby=null":orderby===true?url+="&orderby=true":url+="&orderby=false"
+        ascending===null?url+="&ascending=null":ascending===true?url+="&ascending=true":url+="&ascending=false"
+
         console.log("FETCH URL ", url)
         let options = {
             method: "GET",
@@ -328,16 +344,74 @@ class AdminDashboard extends Component {
       <DropdownMenu>
         <DropdownItem onClick={()=>{
             this.setState({numberOfEntries:5})
-            this.fetchNewPage(1, 5)}} >5</DropdownItem>
+            this.fetchNewPage(1, 5, this.state.orderByUpvotes, this.state.ascendingDate)}} >5</DropdownItem>
         <DropdownItem onClick={()=>{
             this.setState({numberOfEntries:10})
-            this.fetchNewPage(1, 10)}}>10</DropdownItem>
+            this.fetchNewPage(1, 10, this.state.orderByUpvotes, this.state.ascendingDate)}}>10</DropdownItem>
         <DropdownItem onClick={()=>{
             this.setState({numberOfEntries:15})
-            this.fetchNewPage(1, 15)}}>15</DropdownItem>
+            this.fetchNewPage(1, 15, this.state.orderByUpvotes, this.state.ascendingDate)}}>15</DropdownItem>
         <DropdownItem onClick={()=>{
             this.setState({numberOfEntries:20})
-            this.fetchNewPage(1, 20)}}>20</DropdownItem>
+            this.fetchNewPage(1, 20, this.state.orderByUpvotes, this.state.ascendingDate)}}>20</DropdownItem>
+      </DropdownMenu>
+    </UncontrolledDropdown>
+    &nbsp;
+    <UncontrolledDropdown style={{padding:'20px'}}>
+      <DropdownToggle caret>
+        {this.state.orderByUpvotes===null?"No specific order":this.state.orderByUpvotes?"Order by: UpVotes":"Order by: Following"}
+      </DropdownToggle>
+      <DropdownMenu>
+        <DropdownItem onClick={()=>{
+            this.columns[6].style.backgroundColor="rgba(0, 173, 181, 0.5)"
+            this.columns[7].style.backgroundColor="transparent"
+            this.columns[6].headerStyle.backgroundColor="rgba(0, 173, 181, 0.5)"
+            this.columns[7].headerStyle.backgroundColor="transparent"
+            this.setState({orderByUpvotes:true, ascendingDate:null})
+            this.fetchNewPage(1, this.state.numberOfEntries, true, null)}} >UpVotes</DropdownItem>
+        <DropdownItem onClick={()=>{
+            this.columns[6].style.backgroundColor="transparent"
+             this.columns[7].style.backgroundColor="rgba(0, 173, 181, 0.5)"
+             this.columns[6].headerStyle.backgroundColor="transparent"
+             this.columns[7].headerStyle.backgroundColor="rgba(0, 173, 181, 0.5)"
+            this.setState({orderByUpvotes:false, ascendingDate:null})
+            this.fetchNewPage(1, this.state.numberOfEntries, false, null)}}>Following</DropdownItem>
+             <DropdownItem onClick={()=>{
+            this.columns[6].style.backgroundColor="transparent"
+            this.columns[7].style.backgroundColor="transparent"
+            this.columns[6].headerStyle.backgroundColor="transparent"
+            this.columns[7].headerStyle.backgroundColor="transparent"
+            this.setState({orderByUpvotes:null, ascendingDate:null})
+            this.fetchNewPage(1, this.state.numberOfEntries, null, null)}}>Don't order</DropdownItem>
+      </DropdownMenu>
+    </UncontrolledDropdown>
+
+    <UncontrolledDropdown style={{padding:'20px'}}>
+      <DropdownToggle caret>
+        {this.state.ascendingDate===null?'No specific Date order':this.state.ascendingDate===true?"Ascending Date":"Descending Date"}
+      </DropdownToggle>
+      <DropdownMenu>
+        <DropdownItem onClick={()=>{
+              this.columns[6].style.backgroundColor="transparent"
+              this.columns[7].style.backgroundColor="transparent"
+              this.columns[6].headerStyle.backgroundColor="transparent"
+              this.columns[7].headerStyle.backgroundColor="transparent"
+            this.setState({ascendingDate:true, orderByUpvotes:null})
+            this.fetchNewPage(1, this.state.numberOfEntries, this.state.orderByUpvotes, true)}} >Ascending date</DropdownItem>
+        <DropdownItem onClick={()=>{
+              this.columns[6].style.backgroundColor="transparent"
+              this.columns[7].style.backgroundColor="transparent"
+              this.columns[6].headerStyle.backgroundColor="transparent"
+              this.columns[7].headerStyle.backgroundColor="transparent"
+            this.setState({ascendingDate:false, orderByUpvotes:null})
+            this.fetchNewPage(1, this.state.numberOfEntries, this.state.orderByUpvotes, false)}}>Descending date</DropdownItem>
+        <DropdownItem onClick={()=>{
+              this.columns[6].style.backgroundColor="transparent"
+              this.columns[7].style.backgroundColor="transparent"
+              this.columns[6].headerStyle.backgroundColor="transparent"
+              this.columns[7].headerStyle.backgroundColor="transparent"
+            this.setState({ascendingDate:null, orderByUpvotes:null})
+            this.fetchNewPage(1, this.state.numberOfEntries, this.state.orderByUpvotes, null)}}>No specific date</DropdownItem>
       </DropdownMenu>
     </UncontrolledDropdown>
                 </Row>

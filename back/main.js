@@ -68,8 +68,14 @@ getRandomLatency = (min, max)=>{
 
 //Insert fake latency 
 app.use( ( req, res, next ) => {
-  setTimeout(next, getRandomLatency(50, 300));
+  setTimeout(next, getRandomLatency(500, 1500));
 });
+
+/**
+ * Force 12h TOP
+ */
+//force12h();
+
 
 
 
@@ -205,8 +211,44 @@ const AdminJob = schedule.scheduleJob('0 1 * * *', function(fireDate){
   })
 });
 
+/**
+ * Force 12h TOP on start
+ */
 
+async function force12h(){
+  var today = new Date();
+  var yesterday = 1;
+  var check = new Date(today.setDate(today.getDate() - yesterday)).toISOString();
+  let fPosts = await Posts.find({datePosted:{$gte:check}}).lean()
+  let Top = await fPosts.sort((a,b)=> (a.upVotes < b.upVotes ? 1: -1))
+  
+  if(Top.length > 10 ){
+      Top.splice(10, Top.length);
+  }
+  let postsObj = [];
+  Top.forEach(element => {
+      postsObj.push(element._id.toString())
+  });
+  Popular.insertMany({country:"Global", region:"Global", postsId:postsObj, datePopular:Date.now()});
+}
 
+/**
+ * 
+ *   var today = new Date();
+  var yesterday = 1;
+  var check = new Date(today.setDate(today.getDate() - yesterday)).toISOString();
+  let fPosts = await Posts.find({datePosted:{$gte:check}}).lean()
+  let Top = await fPosts.sort((a,b)=> (a.upVotes < b.upVotes ? 1: -1))
+  
+  if(Top.length > 10 ){
+      Top.splice(10, Top.length);
+  }
+  let postsObj = [];
+  Top.forEach(element => {
+      postsObj.push(element._id.toString())
+  });
+  Popular.insertMany({country:"Global", region:"Global", postsId:postsObj, datePopular:Date.now()});
+ */
 
 
 const PopularTopJob = schedule.scheduleJob('0 */12 * * *', async function(fireDate){

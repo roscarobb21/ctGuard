@@ -17,6 +17,7 @@ import SettingsPage from '../Profile/SettingsPage';
 import Forgot from '../RegisterAndLogIn/Forgot';
 import ForgotReset from '../RegisterAndLogIn/ForgotReset';
 import Footer from '../Footer/Footer';
+import Confirm from '../RegisterAndLogIn/Confirm';
 
 import AdminRegister from '../Admin/AdminRegister';
 import AdminLogin from '../Admin/AdminLogin';
@@ -36,11 +37,11 @@ import './Global.css';
 const fontColor={
     color:'white'
 }
-
+// /confirm
 const AnimatedSwitchPublic = withRouter(({location, auth}) => (
             <Switch location={location}>
 
-
+<Route exact path='/confirm/:token' component={Confirm}/>
 
                  <Route exact path='/'
                     component={Homepage}/>
@@ -54,6 +55,7 @@ const AnimatedSwitchPublic = withRouter(({location, auth}) => (
                     component={AdminRegister}/>
               <Route exact path='/admin/login'
                     component={AdminLogin}/>
+            
             
             <Redirect exact from='/profile' to="/login"/>
                 <Redirect exact from='/home' to="/login"/>
@@ -104,7 +106,10 @@ const AnimatedSwitchPrivate = withRouter(({location, auth}) => (
             <Redirect exact from='/forgot/:token'  to="/profile"/>
             <Redirect exact from='/admin/register'  to="/profile"/>
             <Redirect exact from='/admin/login'  to="/profile"/>
-                  
+            <Redirect exact path='/admin/dashboard' to="/profile"/>
+        <Redirect exact path='/admin/deAnon' to="/profile"/>
+        <Redirect exact path='/admin/post/:id' to="/profile"/>
+        <Redirect exact path='/admin/news' to="/profile"/>   
             </Switch>
     )
 );
@@ -186,16 +191,7 @@ class App extends React.Component {
     }
     */
   async UNSAFE_componentWillMount(){
-    let dark = await localStorage.getItem('dark')
-    if(dark === null || dark === undefined){
-        await localStorage.setItem('dark', 'false')
-    }else {
-        if (localStorage.getItem('dark')==="true") {
-            document.body.classList.add('dark-mode');
-          }else {
-            document.body.classList.add('white-mode');
-          }
-    }
+
 
 
     let url = api.backaddr + '/api';
@@ -213,22 +209,45 @@ class App extends React.Component {
     let responseRaw = await fetch(url, options)
     let response = await responseRaw.json();
     console.log("🚀 ~ file: App.js ~ line 219 ~ App ~ UNSAFE_componentWillMount ~ response", response)
-    let dark = await localStorage.getItem('dark')
+    
     if(response.ok === 1){
         this.setState({haveGoodToken:true, isLoading:false, isAdmin:response.user.isAdmin})
     }else {
         this.setState({haveGoodToken:false,isLoading:false, isLoading:false})
     }
+    let dark = await localStorage.getItem('dark')
+    if(dark === null || dark === undefined){
+        await localStorage.setItem('dark', 'false')
+    }
+    dark = dark ==='true'?true:false;
+    if(dark !== response.user.darkTheme){
+       await localStorage.setItem('dark', response.user.darkTheme)
+    }
+    if (localStorage.getItem('dark')==="true") {
+        document.body.classList.add('dark-mode');
+      }else {
+        document.body.classList.add('white-mode');
+      }
+
     }
     catch(err){
-        
+    console.log("CATCH")
     let dark = await localStorage.getItem('dark')
     if(dark === null || dark === undefined){
        await localStorage.setItem('dark', 'false')
     }
+
+    if (localStorage.getItem('dark')==="true") {
+        document.body.classList.add('dark-mode');
+      }else {
+        document.body.classList.add('white-mode');
+      }
     let theme = await dark === "true"?'dark-theme-background':'white-theme-background'
     this.setState({haveGoodToken:false, isLoading:false, theme:theme})
     }
+
+
+   
 
    }
 

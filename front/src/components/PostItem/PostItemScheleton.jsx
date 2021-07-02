@@ -19,18 +19,19 @@ function PostItemScheleton(){
     let height = getRandomInt(100, 300)
     return(
         <div style={{width:'100%', height:height+'px'}} className="background-component">
+            <div style={{borderRadius:'10px'}}>
             <Card style={{marginTop:'2vh'}} className="background-component">
                 <CardBody className="background-component">
-                    <SkeletonTheme>
-                <Skeleton height={height-50} count={1} color="black" className="skeleton-theme">
-        </Skeleton>
-        </SkeletonTheme>
+                    
+                <Skeleton height={height-50} count={1} color="black" className="skeleton-theme" />
+        
                 </CardBody>
                 <CardFooter>
                 <Skeleton  count={1} className="skeleton-theme">
         </Skeleton>
                 </CardFooter>
             </Card>
+            </div>
         </div>
     )
 

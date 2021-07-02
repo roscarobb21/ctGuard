@@ -15,7 +15,7 @@ const DeAnonQueue = require('../models/DeAnonQueue');
 const { async } = require('crypto-random-string');
 const notificationQueue = require('../models/notificationQueue');
 const { response } = require('express')
-moment().format(); 
+
 /**
  * Get admin user info
  * Info provided : 
@@ -68,6 +68,14 @@ router.get('/post?', async(req, res, next)=>{
 
 
 let uid = req.user._id
+let check = req.query.orderby
+
+let orderby = req.query.orderby === undefined?true:req.query.orderby === 'null'?null:req.query.orderby === 'true'?true:false
+console.log("🚀 ~ file: router.js ~ line 74 ~ router.get ~ orderby", orderby)
+
+let ascending = req.query.ascending === undefined?null:req.query.ascending === 'null'?null:req.query.ascending === 'true'?true:false
+console.log("🚀 ~ file: router.js ~ line 77 ~ router.get ~ ascending", ascending)
+
 let category = (req.query.category===undefined || req.query.category === null)?'':req.query.category;
 let status = (req.query.status===undefined || req.query.status === null)?'':req.query.status;
 console.log("🚀 ~ file: router.js ~ line 73 ~ router.get ~ status", status)
@@ -80,14 +88,50 @@ let page = (req.query.page===undefined || req.query.page === null)?parseInt(1):p
 console.log("🚀 ~ file: router.js ~ line 79 ~ router.get ~ page", page)
 
 
-let responsePosts = await Posts.find({$and: [
+let responsePostsRaw = await Posts.find({$and: [
     {category:category===''?{$exists:true}:category},
     {status:status===''?{$exists:true}:status},
     {datePosted:datelower===''?{$exists:true}:{$gte:datelower}},
     {datePosted:dateupper===''?{$exists:true}:{$lte:dateupper}}
 ]
-})
-console.log("🚀 ~ file: router.js ~ line 88 ~ router.get ~ responsePosts", responsePosts.length)
+}).lean()
+
+/**
+ * Order by upvotes
+ */
+let responsePostsOrder
+if(orderby && orderby !== null){
+        //order by upvotes
+        console.log("order by upvotes")
+        responsePostsOrder = responsePostsRaw.sort((a,b)=> (a.upVotes > b.upVotes ? 1 : -1)).reverse()
+}else if (orderby === false){
+        //order by following
+        console.log("order by followers")
+        responsePostsOrder = responsePostsRaw.sort((a,b)=> (a.followers > b.followers ? 1 : -1)).reverse()
+}else {
+        //no specific order
+        console.log("no order")
+        responsePostsOrder = responsePostsRaw
+}
+
+/**
+ * Order by Date
+ */
+ let responsePosts
+ if(ascending && ascending !== null){
+         //order by upvotes
+         console.log("order ascending")
+         responsePosts = responsePostsOrder.sort((a,b)=> (a.datePosted > b.datePosted ? 1 : -1))
+ }else if (ascending === false){
+         //order by following
+         console.log("order descending")
+         responsePosts = responsePostsOrder.sort((a,b)=> (a.datePosted < b.datePosted ? 1 : -1))
+ }else {
+         //no specific order
+         console.log("no date order")
+         responsePosts = responsePostsOrder
+ }
+
 
 /**
  * Pagination
@@ -100,9 +144,19 @@ let pages = Array.from({length: pgNr}, (_, i) => i + 1)
 //which posts should correspond to this page
 let processedPosts = responsePosts.slice(number*(page-1), number*(page-1)+number)
 
+let processedPostsBody = processedPosts;
+processedPostsBody.forEach(async element => {
+    if (element.body.length > 350){
+        element.body = element.body.substring(0, 350) + "..."
+    }
+});
+let processedPostsDate = processedPostsBody;
 
-res.json({ok:1,number:responsePosts.length,posts:processedPosts, pages:pages})
+for(let i=0; i<processedPostsDate.length; i++){
+    processedPostsDate[i].datePostedStr = moment(processedPostsDate[i].datePosted).format('MMMM Do YYYY, h:mm:ss a')
+}
 
+res.json({ok:1,number:responsePosts.length,posts:processedPostsDate, pages:pages})
 
 })
 

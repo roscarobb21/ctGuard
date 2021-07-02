@@ -6,6 +6,7 @@ import {Container, Row, Col, Spinner} from 'reactstrap';
 import {FormGroup, Label, Input, Button} from 'reactstrap';
 import { Media } from 'reactstrap';
 import Carousel, {consts} from 'react-elastic-carousel';
+import Footer from '../Footer/Footer'
 import pop from '../../assets/pop.mp3';
 import unPop from '../../assets/unPop.mp3';
 import Notification from '../../assets/notification.wav';
@@ -17,12 +18,12 @@ import ExpandCollapse from 'react-expand-collapse';
 import api from '../../constants/api';
 import Divider from '@material-ui/core/Divider';
 import Blink from 'react-blink-text';
-
+import moment from 'moment';
 import { InView } from 'react-intersection-observer';
 
 import Video from 'react-responsive-video';
 import Skeleton from 'react-loading-skeleton';
-import PageProgress from 'react-page-progress';
+import LoadingBar from "react-top-loading-bar";
 /**
  * upvote svg
  */
@@ -38,27 +39,14 @@ import starDone from '../../assets/starDone.png';
 import bellDone from '../../assets/bellDone.svg';
 import bellNone from '../../assets/bellNone.svg';
 
-
+import notFoundImg from '../../assets/notFoundError.png';
 import expandPng from '../../assets/expand.png';
 import postComment from '../../assets/arrow.png';
 import PlaceImg from '../../assets/global.png';
 import './General.css';
 import './PostPage.css';
-import { KeyboardReturnRounded, ThreeSixtyTwoTone } from '@material-ui/icons';
 
 
-import { makeStyles } from '@material-ui/core/styles';
-import Dialog from '@material-ui/core/Dialog';
-import ListItemText from '@material-ui/core/ListItemText';
-import ListItem from '@material-ui/core/ListItem';
-import List from '@material-ui/core/List';
-//import Divider from '@material-ui/core/Divider';
-import AppBar from '@material-ui/core/AppBar';
-import Toolbar from '@material-ui/core/Toolbar';
-import IconButton from '@material-ui/core/IconButton';
-import Typography from '@material-ui/core/Typography';
-import CloseIcon from '@material-ui/icons/Close';
-import Slide from '@material-ui/core/Slide';
 
 import LargeMedia from '../LargeMediaViewer/LargeMediaViewer'
 import ctLogo from '../../assets/security.png';
@@ -204,21 +192,21 @@ componentDidMount(){
                 }
             };
             fetch(url, options).then(response=>response.json()).then(response=>{
-                let color;
-                switch(response.post.category){
-                    case "Incident":
-                        color = "#ff2e63";
-                        break;
-                    case "Request":
-                        color = "#00adb5";
-                        break;
-                    default:
-                        color = "black";
-                        break;
-                }
+               
                if(response.ok === 1){
                   // this.setState({loading:true})
-                
+                  let color;
+                  switch(response.post.category){
+                      case "Incident":
+                          color = "#ff2e63";
+                          break;
+                      case "Request":
+                          color = "#00adb5";
+                          break;
+                      default:
+                          color = "black";
+                          break;
+                  }
                 this.setState({color:color, loading:false, post:response.post, authResponse:response.post.authoritiesResponse, up:response.up, follow:response.follow, subscribe:response.subscribe, commentArray:response.post.comments, followNum:response.followNum, upVotesNum:response.upVotesNum})
 
                }else {
@@ -375,7 +363,7 @@ AuthoritiesResponseBubble = (element, i)=>{
                                 <div style={{textAlign:'justify'}}><span>{element.body}</span></div>
                                 <small className="text-muted float-left" ><span>Status change : {element.previousStatus}-> {element.currentStatus}</span></small>
                                 <br></br>
-                                <small className="text-muted float-left" ><span>{element.postDate}</span></small>
+                                <small className="text-muted float-left" ><span>{moment(element.postDate).format("MMMM Do YYYY, h:mm:ss a")}</span></small>
                             </Media>
                         </Media>
                     <Divider/>
@@ -497,7 +485,7 @@ commentPost = ()=>{
    audio.play();
    fetch(url, options).then(response=>response.json()).then(response=>{
        if(response.ok === 1){
-           this.setState({commentArray:response.newArray})
+           this.setState({commentArray:response.newArray, comment:""})
        }
    })
    obj.postDate= Date.now();
@@ -536,7 +524,7 @@ generateCommentBubble = (comment, i)=>{
                                 <a href={"/user/"+comment.postedBy}><p style={{textAlign:'justify'}} > <Badge color="secondary">@{comment.postedByUsername}</Badge></p> </a> 
                             </Media>
                                 <p style={{textAlign:'justify'}}>{comment.body}</p>
-                                <small className="text-muted float-left" >{comment.postDate}</small>
+                                <small className="text-muted float-left" >{moment(comment.postDate).format("MMMM Do YYYY, h:mm:ss a")}</small>
                             </Media>
                         </Media>
                     <Divider/>
@@ -559,7 +547,7 @@ return(
               <a href={"/user/"+comment.postedBy}><p style={{textAlign:'justify'}} > <Badge color="secondary">@{comment.postedByUsername}</Badge></p> </a> 
           </Media>
          <p style={{textAlign:'justify'}}>{comment.body}</p>
-         <small className="text-muted float-left" >{comment.postDate}</small>
+         <small className="text-muted float-left" >{moment(comment.postDate).format("MMMM Do YYYY, h:mm:ss a")}</small>
         </Media>
       </Media>
       <Divider/>
@@ -581,7 +569,7 @@ return(
                   <a href={"/user/"+comment.postedBy}><p style={{textAlign:'justify'}} > <Badge color="secondary">@{comment.postedByUsername}</Badge></p> </a> 
               </Media>
              <p style={{textAlign:'justify'}}>{comment.body}</p>
-             <small className="text-muted float-left" >{comment.postDate}</small>
+             <small className="text-muted float-left" >{moment(comment.postDate).format("MMMM Do YYYY, h:mm:ss a")}</small>
             </Media>
           </Media>
           <Divider/>
@@ -652,33 +640,63 @@ render(){
     if(this.state.loading){
         return(<div>
             <NavBar/>
+          
             <Container style={{height:'90vh'}}>
                 <Row style={{wdith:'inherit', height:'inherit', marginTop:'30px'}}>
                     <Col style={{wdith:'inherit', height:'inherit'}} className="d-flex justify-content-center ">
-                        <div className="" style={{width:'inherit'}}>
-                            <PostPageScheleton/>
+                        <div className="post-presentation background-component" style={{borderRadius:'20px', width:'100%', padding:'20px'}}>
+                        <section>
+                         <div style={{padding:'25px', wordWrap:'break-word', width:'100%', textAlign:'left'}}>
+                           <Skeleton className="skeleton-theme" width={'100%'} height={50} count={1} />
+                            </div>
+                        </section>
+                        <section>
+                         <div style={{padding:'25px', wordWrap:'break-word', width:'100%', textAlign:'left'}}>
+                           <Skeleton className="skeleton-theme" width={'100%'} height={15} count={3} />
+                            </div>
+                        </section>
+                        <Row style={{marginTop:'30px'}}>
+                                   <Col>
+                 <div style={{padding:'25px'}}>
+                             <Skeleton className="skeleton-theme" height={500}/>
+                                 </div>
+                     
+                                   </Col>
+                               </Row>
                         </div>
                     </Col>
                 </Row>
+              
             </Container>
             </div>)
     }
     /**
      * Error
      */
-    if(this.state.post === null){
+    if((this.state.post === null || this.state.post === undefined) && !this.state.loading){
         return(<div>
-            <NavBar/>
             <div>
-                <Container>
-                    <Row>
-                        <Col>
-                       {this.state.loading && <Spinner/>}
-                       {this.state.err.length>0?this.state.err:""}
+            <NavBar/>
+            <LoadingBar
+          progress={99.9}
+          height={3}
+          color="red"
+        />
+        </div>
+            <div style={{minHeight:'96vh'}}>
+                <Container style={{height:'inherit'}}>
+                    <Row style={{height:'inherit', marginTop:'30px'}}>
+                        <Col style={{height:'inherit'}}>
+                        <div className="background-component d-flex justify-content-center" style={{minHeight:'350px', borderRadius:'20px'}}>
+                        <img className="icon-xlarge align-self-center" src={notFoundImg}></img>
+                      <span className="text-header2 align-self-center">{this.state.err.length>0?this.state.err:""}</span>
+                       </div>
                         </Col>
                     </Row>
                 </Container>
+                
             </div>
+            <Footer/>
         </div>)
     }
 
@@ -690,32 +708,46 @@ render(){
  */
 
 let statusColor;
+let progress;
 switch(this.state.post.status){
     case "New":
         statusColor="#08d9d6";
+        progress=35;
         break;
     case "In progress...":
         statusColor="#f9b208";
+        progress=75;
         break;
     case "Solved":
         statusColor="#00adb5";
+        progress=99.9;
         break;
     case "Blocked":
         statusColor="#ff2e63";
+        progress=99.9;
         break;
     default:
         statusColor="black";
+        progress=0;
         break;
 }
   
     return(<div className="background">
-        <NavBar/>
+        <div>
+            <NavBar/>
+            <LoadingBar
+            style={{paddingLeft:'10px'}}
+          progress={progress}
+          height={3}
+          color={statusColor}
+        />
+        </div>
         <div>
            <LargeMedia showDialog={this.state.showDialog} expandId={this.state.expandId} parentCallback = {this.callbackFunction} media={this.state.post.media} username={this.state.post.postedByUsername} title={this.state.post.header} country={this.state.post.country} region={this.state.post.region}/>
             <Container >
                 <Row style={{marginTop:'30px'}}>
                     <Col >
-                        <div className="post-presentation background-component" style={{ backgroundColor:'white', borderRadius:'20px', width:'100%', padding:'20px'}} > 
+                        <div className="post-presentation background-component" style={{borderRadius:'20px', width:'100%', padding:'20px'}} > 
                         <Row>
                             <Col>
                                 <section>
@@ -726,7 +758,7 @@ switch(this.state.post.status){
                                 <section style={{paddingRight:'20px'}}className="float-right">
                                     <img src={PlaceImg} style={{width:'32px', height:'32px'}}></img>
                                     &nbsp;
-                                    <span>{this.state.post.country}</span>,&nbsp;
+                                    <span>{this.state.post.country},</span>&nbsp;
                                     <span>{this.state.post.region}</span>
                                 </section>
                                 </Col>
@@ -799,7 +831,7 @@ switch(this.state.post.status){
                                 
                                      </div>
                                      <div className="float-right">
-                                        <small><span><a className="text-color" title={'Link to '+this.state.post.postedByUsername+'\'s profile'}  href={'/user/'+this.state.post.postedBy} className="" >@{this.state.post.postedByUsername}</a></span>&nbsp;<span>{this.state.post.datePosted}</span>&nbsp;<span style={{color:statusColor}}>{this.state.post.status}</span></small>
+                                        <small><span><a className="text-color" title={'Link to '+this.state.post.postedByUsername+'\'s profile'}  href={'/user/'+this.state.post.postedBy} className="" >@{this.state.post.postedByUsername}</a></span>&nbsp;<span>{moment(this.state.post.datePosted).format("MMMM Do YYYY, h:mm:ss a")}</span>&nbsp;<span style={{color:statusColor}}>{this.state.post.status}</span></small>
                                      </div>
                               </div>
 
@@ -813,7 +845,7 @@ switch(this.state.post.status){
                         <Row   className="">
                             <Col style={{minHeight:'200px',maxHeight:'400px'}}>
                             <p className="text-header1 float-left"><span>Authorities Response</span></p>
-                            <p className="float-left">Latest update on <span style={{color:"#08d9d6"}}>{this.state.post.lastUpdated}</span></p>
+                            <p className="float-left">Latest update on <span style={{color:"#08d9d6"}}>{moment(this.state.post.lastUpdated).format("MMMM Do YYYY, h:mm:ss a")}</span></p>
                             </Col>
                             <Col style={{minHeight:'200px',maxHeight:'400px', overflowY:'scroll'}}>
                             <div className='' style={{}}>
@@ -855,6 +887,7 @@ switch(this.state.post.status){
                                 <Input type="textarea" name="text" id="commentTextArea" 
                                 placeholder="Insert your comment here"
                                 value={this.state.comment}
+                                spellCheck="false"
                                 onChange={(evt)=>{this.setState({comment:evt.target.value})}}
                                 onKeyDown={(evt)=>{
                                     if(evt.key==="Enter"){

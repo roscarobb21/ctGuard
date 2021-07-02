@@ -114,6 +114,16 @@ functionTxt:{
 },
 latestActive:{
     type:Date,
+},
+confirmed:{
+    type:Boolean,
+},
+registrationToken:{
+    type:String,
+},
+registrationDate:{
+    type:Date,
+    default:Date.now()
 }
 });
 

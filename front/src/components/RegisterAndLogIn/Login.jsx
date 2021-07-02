@@ -93,6 +93,7 @@ class Login extends React.Component{
             passwordErr:"",
             width:null,
             height:null,
+            resend:false,
         }
     }
 
@@ -101,6 +102,7 @@ class Login extends React.Component{
         console.log("mount ", window.innerWidth)
         this.setState({ width: window.innerWidth, height: window.innerHeight });
     }
+    
     updateDimensions = () => {
         console.log("RESIZE ", window.innerWidth)
         this.setState({ width: window.innerWidth, height: window.innerHeight });
@@ -153,7 +155,11 @@ class Login extends React.Component{
         .then(response => {
             console.log('response : ', response)
            if(response.ok === 0){
-          this.setState({passwordErr:" ",emailErr:response.msg, replaceSubmit:false})
+               let resend = false;
+               if(response.msg === "Email address not confirmed"){
+                   resend = true;
+               }
+          this.setState({passwordErr:" ",emailErr:response.msg, replaceSubmit:false, resend:resend})
           return;
            }
            localStorage.setItem("token", response.token)
@@ -166,7 +172,23 @@ class Login extends React.Component{
 
     }
 
-
+    resendConfirmation = ()=>{
+        let url = api.backaddr + '/resend'
+        let options = {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              Pragma: "no-cache",
+            },
+            body: JSON.stringify({
+              email: this.state.email,
+            }),
+          };
+         
+          fetch(url, options)
+          this.setState({resend:false, emailErr:"Check your inbox for the new link"})
+    }
     handleModal=()=> {
         this.setState({
             closeModal: !this.state.closeModal
@@ -286,6 +308,7 @@ class Login extends React.Component{
                     <Row >
                         <Col></Col>
                         <Col>
+                        
                     {this.state.replaceSubmit && <Spinner/>}
 {!this.state.replaceSubmit &&
 <Button variant="outlined" color="primary" style={{outline:'none', width:'270px'}} onClick={this.handleLoginSubmit}>
@@ -305,6 +328,7 @@ class Login extends React.Component{
                     </Row>
 <div style={{marginTop:'10px'}}>
     <p>Forgot your password?&nbsp;<a href="/forgot">Reset it!</a></p>
+    {this.state.resend && <Button variant="outlined" color="primary" onClick={this.resendConfirmation}>Resend confirmation email?</Button>}
 </div>
 
 

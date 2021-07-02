@@ -119,6 +119,13 @@ input:-webkit-autofill:active {
   color:black!important;
 }
 
+.true-accent-always{
+  color:#08D9D6 !important;
+}
+.false-accent-always{
+  color:#FF2E63 !important;
+}
+
 .register-component{
   min-height:300px;
    min-width:300px;
@@ -186,7 +193,9 @@ input:-webkit-autofill:active {
   display:flex !important;
 }
 
-
+.text-white-always{
+  color:white !important;
+}
 
 .vertical-center{
   align-self:center !important;

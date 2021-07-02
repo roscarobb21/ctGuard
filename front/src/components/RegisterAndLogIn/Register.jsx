@@ -9,30 +9,14 @@ import {
     ModalFooter,
     Spinner,
 } from 'reactstrap';
-import {
-    AvForm,
-    AvField,
-    AvGroup,
-    AvInput,
-    AvRadioGroup,
-    AvRadio,
-    AvFeedback
-} from 'availity-reactstrap-validation';
-import {Form} from 'react-bootstrap';
 import {TextField, Button, FormControl, InputLabel, Input, FormHelperText, IconButton, InputAdornment, OutlinedInput } from '@material-ui/core';
 import {Autocomplete} from '@material-ui/lab';
 import Footer from '../Footer/Footer';
 
 import api from '../../constants/api';
-import eye from '../../assets/eye.png';
 import ctGuardLogo from '../../assets/security.png';
-import ctVideo from '../../assets/ctVideo.mp4';
 
-import { makeStyles } from '@material-ui/core/styles';
-import { CountryDropdown, RegionDropdown, CountryRegionData } from 'react-country-region-selector';
 import './RegisterAndLogin.css'
-import { ThemeConsumer } from 'styled-components';
-import { findAllByDisplayValue } from '@testing-library/dom';
 import Visibility from "@material-ui/icons/Visibility";
 import VisibilityOff from "@material-ui/icons/VisibilityOff";
 
@@ -41,14 +25,15 @@ import '../router/Global.css'
 
 
 import FacebookLogin from 'react-facebook-login/dist/facebook-login-render-props'
-const countries = [{title:"Romania"}, {title:"USA"}]
+const countries = [{title:"Romania"}]
 const region = [{title:"Suceava"}, {title:"Bucuresti"}, {title:"Iasi"}]
 
+// for facebook
+//set HTTPS=true&&set SSL_CRT_FILE=C:\\Users\\user\\Desktop\\ctGuardFrontandBack\\ctguard\\guard\\localhost.pem&&set SSL_KEY_FILE=C:\\Users\\user\\Desktop\\ctGuardFrontandBack\\ctguard\\guard\\localhost-key.pem&&
 
 const LogInWithFacebook = ()=>{
     return (
    
-    
     <FacebookLogin
         appId="859679134858810"
         autoLoad={false}
@@ -56,8 +41,8 @@ const LogInWithFacebook = ()=>{
         onClick={()=>{console.log('onclick')}}
         callback={responseFacebook}
         render={renderProps => (
-            <Button variant="outlined" color="primary" onClick={renderProps.onClick} >Log in with Facebook</Button>
-          )}
+           <Button variant="outlined" color="primary" onClick={renderProps.onClick} >Log in with Facebook</Button>
+            )}
         />
     )
 }
@@ -107,6 +92,7 @@ constructor(props){
     this.state={
         showPass:false,
         replaceSubmit:false,
+        fetchModalVar:false,
         email:"",
         username:"",
         password:"",
@@ -128,18 +114,18 @@ SubmitRegisterRequest=()=>{
 let errFlag = 0;
 if(this.state.email.length === 0 ){
     errFlag=1;
-    this.setState({emailErr:"Email is empty"})
+    this.setState({emailErr:"Please Insert Email"})
 }else if (!this.isValidEmailAddress()){
         errFlag=1;
-        this.setState({emailErr:"Input provided is not email type"})
+        this.setState({emailErr:"Please insert an Email address"})
 }
 if(this.state.username.length === 0 ){
     errFlag=1;
-    this.setState({usernameErr:"Username is empty"})
+    this.setState({usernameErr:"Please insert username"})
 }
 if(this.state.password.length === 0 ){
     errFlag=1;
-    this.setState({passwordErr:"Password field is empty"})
+    this.setState({passwordErr:"Choose a password"})
 }
 if(this.state.password !== this.state.confirm){
     errFlag=1;
@@ -147,18 +133,22 @@ if(this.state.password !== this.state.confirm){
 }
 if(this.state.country.length === 0){
     errFlag=1;
-    this.setState({countryErr:"Don't leave empty"})
+    this.setState({countryErr:"Select your country"})
 }
 if(this.state.region.length === 0){
     errFlag=1;
-    this.setState({regionErr:"Don't leave empty"})
+    this.setState({regionErr:"Select your region"})
 }
 
 
 if(errFlag){return;}
 
-this.setState({replaceSubmit:true});
-let url = api.backaddr + '/signup'
+this.setState({replaceSubmit:true, fetchModalVar:true});
+
+}
+
+fetchRegister = ()=>{
+    let url = api.backaddr + '/signup'
 let options = {
     method: "POST",
     headers: {
@@ -173,31 +163,61 @@ let options = {
          username: this.state.username.toString()}
     )
 };
-fetch(url, options).then(response=>response.json()).then(response=>{
+    fetch(url, options).then(response=>response.json()).then(response=>{
 
-    if(response.ok === 1){
-        window.location.assign('/login')
-    }else {
-        this.setState({replaceSubmit:false});
-        if(response.type === "username"){
-            this.setState({usernameErr:"Username invalid or already taken"})
+        if(response.ok === 1){
+            window.location.assign('/login')
+        }else {
+            this.setState({replaceSubmit:false, fetchModalVar:false});
+            if(response.type === "username"){
+                this.setState({usernameErr:"Username invalid or already taken"})
+            }
+            if(response.type === "email"){
+                this.setState({emailErr:"Email invalid or already taken"})
+            }
+    
+    
         }
-        if(response.type === "email"){
-            this.setState({emailErr:"Email invalid or already taken"})
-        }
-
-
-    }
-
-
-})
-
-
+    
+    
+    })
 }
-
+fetchModal=()=>{
+    this.setState({fetchModalVar:this.state.fetchModalVar})}
 render(){
     return(
         <div className="register-background">
+                  
+                  <Modal isOpen={
+                       this.state.fetchModalVar
+                    }
+                    toggle={
+                        this.state.fetchModal
+                }>
+                    <ModalHeader toggle={
+                        this.fetchModal
+                    }> <span>Dialog</span></ModalHeader>
+                    <ModalBody>
+                        <span>Please double check the email address.</span>&nbsp;
+                        <span>We will send you an email with the confirmation link.</span>&nbsp;
+                        <span>You can confirm your email by clicking on the link</span>&nbsp;
+                        <br></br>
+                        <span className="false-accent-always">Warning!</span><span>&nbsp;You will not be able to log in without email address confirmation.</span>
+                        <p className="true-accent-always">{this.state.email}</p>
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button  onClick={()=>{this.setState({fetchModalVar:false, replaceSubmit:false})}}>
+                           <span className="false-accent-always">I will double check</span>
+                        </Button>
+                        <Button color="primary"
+                        className="true-accent-always"
+                           onClick={
+                               ()=>{
+                            this.fetchRegister()
+                               }
+                    } > <span className="true-accent-always">Looks fine!</span></Button>
+                    </ModalFooter>
+                </Modal>
               <Row className="p-1">
                     <Col><p className={"text-header1"}>Are your ready? Register now! </p></Col>
                 </Row>

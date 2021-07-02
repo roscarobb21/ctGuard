@@ -6,6 +6,15 @@ Feed post Cards
     height: 90% !important;
 }
 
+.refresh-rotate{
+    transition: transform 1s cubic-bezier(.5,-0.26,.45,1.35);
+}
+.refresh-rotate:hover {
+    transform: rotate(360deg);
+}
+
+
+
 .recently-card-box{
     transition: font-size 0.5s ease;
 }

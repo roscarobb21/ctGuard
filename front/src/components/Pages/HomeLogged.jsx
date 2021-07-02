@@ -16,7 +16,7 @@ import { ListGroup, ListGroupItem, Label , Button, UncontrolledCollapse} from 'r
 import Skeleton from 'react-loading-skeleton';
 import 'react-medium-image-zoom/dist/styles.css';
 import Collapse from "@kunukn/react-collapse";
-
+import refresh from '../../assets/refresh.png';
 
 import { InView } from 'react-intersection-observer';
 
@@ -57,6 +57,8 @@ class HomeLogged extends React.Component {
             usrFollow:null,
             feed:null,
             feedPosts:null,
+            feedLoading:true,
+            followLoading:true,
             dropdownOpen:false,
             dropdownViewOpen:false,
             showSpinner:false,
@@ -237,13 +239,11 @@ async componentDidMount(){
     window.addEventListener('resize', this.updateDimensions);
     //  this.socket.emit('join_push_notifications', response.user.id.toString())
     this.socket.on('following_post_notification', (info)=>{
-        console.log("🚀 ~ file: HomeLogged.jsx ~ line 185 ~ HomeLogged ~ this.socket.on ~ info", info)
         let notifications = this.state.notificationsFeedElements;
         let audio = new Audio(Notification);
         audio.play();
        this.fetchNotificationsFeed();
     })
-
     this.socket.on('comment', (pid)=>{
         //increment number on pid from notificationsFeed on fetch
         let newNot =  this.state.notificationsFeed;
@@ -270,6 +270,9 @@ async componentDidMount(){
     this.setState({recentlyPosts:response.posts })
 
 }
+
+
+
     toggleDrop=()=>{
         this.setState({dropdownOpen:!this.state.dropdownOpen})
     }
@@ -277,21 +280,7 @@ async componentDidMount(){
         this.setState({dropdownViewOpen:!this.state.dropdownViewOpen})
     }
  
-    handleScroll=()=>{
-        /*
-        const windowHeight = "innerHeight" in window ? window.innerHeight : document.documentElement.offsetHeight;
-        const body = document.body;
-        const html = document.documentElement;
-        const docHeight = Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.scrollHeight, html.offsetHeight);
-        const windowBottom = Math.round(windowHeight + window.pageYOffset);
-        const myCheck = document.scrollingElement.scrollTop;
-        const why = (myCheck-300)/10;
-        if (windowBottom+120 >= docHeight) {
-            this.setState({showSpinner:true, scrollHeightCheck:why})
-                this.fetchFeed();
-        }
-        */
-    }
+   
     updateDimensions = () => {
         console.log('width is q: ', window.innerWidth)
         this.setState({ width: window.innerWidth});
@@ -304,87 +293,9 @@ async componentDidMount(){
 
 
 
- fetchFeed= async()=>{
-    let url = api.backaddr+ '/api/feed';
-    let options = {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            Pragma: "no-cache",
-            token: localStorage.getItem("token").toString()
-        }
-    };
-    let responseRaw = await fetch(url, options);
-    let response = await responseRaw.json();
-    
-    let tempPosts = []
-    tempPosts = tempPosts.concat(this.state.feedPosts)
-    tempPosts = tempPosts.concat(response.posts)
-
-    this.setState({feedPosts:tempPosts, showSpinner:false})
-    setTimeout(()=>{
-        this.setState({updated:false})
-    }, 1500)
-}
-
-fetchFollowingPosts = async ()=>{
-    let url = api.backaddr+ '/api/following';
-    let options = {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            Pragma: "no-cache",
-            token: localStorage.getItem("token").toString()
-        }
-    };
-    let responseRaw = await fetch(url, options);
-    let response = await responseRaw.json();
-    this.setState({following:response.posts, showSpinner:false})
-}
-
-   async componentWillMount(){
-
-       let url= api.backaddr+'/api'
-      
-        let options = {
-            method: "GET",
-            headers: {
-                "Content-Type": "application/json",
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-                Pragma: "no-cache",
-                token: localStorage.getItem("token").toString()
-            }
-        };
-  
-    let responseRaw= await fetch(url, options);
-    let response = await responseRaw.json();
 
 
-    if(response.user.feed){
-        let Feedurl = api.backaddr+ '/api/feed';
-    let Feedoptions = {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            Pragma: "no-cache",
-            token: localStorage.getItem("token").toString()
-        }
-    };
-    let FeedresponseRaw = await fetch(Feedurl, Feedoptions);
-    let Feedresponse = await FeedresponseRaw.json();
-    console.log("🚀 ~ file: HomeLogged.jsx ~ line 369 ~ HomeLogged ~ componentWillMount ~ Feedresponse", Feedresponse)
-    
-   this.fetchNotificationsFeed();
 
-    
-    this.socket.emit('join_push_notifications', response.user.id.toString())
-    this.setState({uid:response.user.id.toString(),feed:response.user.feed, feedPosts:Feedresponse.posts})
-    }else {
-    }
-    }
 /**
  * 
  * @param {recently upvoted posts (fetched)} posts 
@@ -421,26 +332,70 @@ fetchFollowingPosts = async ()=>{
             );
         })
     }
+
+
+
+    async componentWillMount(){
+        //user info and notifications subscribe
+    let url= api.backaddr+'/api'
+    let options = {
+             method: "GET",
+             headers: {
+                 "Content-Type": "application/json",
+                 "Cache-Control": "no-cache, no-store, must-revalidate",
+                 Pragma: "no-cache",
+                 token: localStorage.getItem("token").toString()
+             }
+         };
+   
+     let responseRaw= await fetch(url, options);
+     let response = await responseRaw.json();
+     this.fetchNotificationsFeed();
+     this.socket.emit('join_push_notifications', response.user.id.toString())
+ 
+
+
+     if(response.user.feed){
+     this.setState({uid:response.user.id.toString(),feed:response.user.feed, dropDownTextIndex:0})
+     this.fetchFeed()
+     }else {
+     this.setState({uid:response.user.id.toString(),feed:response.user.feed, dropDownTextIndex:1})
+     this.fetchFollowingPosts();
+     }
+     }
+
+
+
+
 /**
  * Following cards
  */
     generateFollowingItems=()=>{
-        if (this.state.following === null ) {
+        if (this.state.following === null) {
             return (
                 <div>
                    <GenerateSkeletonsCard/>
                 </div>
             )
-        }else if (this.state.following.length === 0){
-            return(<div>
+        }
+        if (this.state.followLoading) {
+            return (
+                <div>
+                   <GenerateSkeletonsCard/>
+                </div>
+            )
+        }
+      
+        if (this.state.following.length === 0 && !this.state.followLoading){
+            return(<div style={{marginTop:'30px'}}>
                 <p>You don't follow any posts yet</p>
             </div>)
         }
+        
         return this.state.following.map((post)=>{
-                /**
-                 * TapeView
-                 */
-            
+            if(post === null){
+                return;
+            }
             return(<div>
             <PostItem post={post}/>
             </div>)
@@ -452,19 +407,27 @@ fetchFollowingPosts = async ()=>{
 
 
 generateFeedCards=  (props)=>{
-    if (this.state.feedPosts === null || this.state.feedPosts.length === 0) {
+    if (this.state.feedLoading) {
         return (
             <div>
-                <p>Server error</p>
+               <GenerateSkeletonsCard/>
             </div>
         )
     }
-  
-    return this.state.feedPosts.map((post, i)=>{
-    console.log("🚀 ~ file: HomeLogged.jsx ~ line 457 ~ HomeLogged ~ returnthis.state.feedPosts.map ~ i", i)
-    console.log("🚀 ~ file: HomeLogged.jsx ~ line 457 ~ HomeLogged ~ returnthis.state.feedPosts.map ~ i feed", this.state.feedPosts.length)
 
+    if (this.state.feedPosts === null) {
+        return (
+            <div>
+               <GenerateSkeletonsCard/>
+            </div>
+        )
+    }
+    return this.state.feedPosts.map((post, i)=>{
+        if(post===null){
+            return;
+        }
         if((i+1) === this.state.feedPosts.length){
+            console.log("478 LAST IS : ", post)
                 return(
                     <div>
                             <PostItem post={post}/>
@@ -472,9 +435,9 @@ generateFeedCards=  (props)=>{
                     {({ inView, ref, entry }) => {
                         if(inView && !this.state.updated){
                             this.setState({showSpinner:true, updated:true})
+                            console.log("478 REFETCH")
                             this.fetchFeed()
                         }
-                    console.log("🚀 ~ file: HomeLogged.jsx ~ line 473 ~ HomeLogged ~ returnthis.state.feedPosts.map ~ inView", inView)
                         
                         return(
                 <div className="card-size latest-card" ref={ref}>
@@ -491,8 +454,68 @@ generateFeedCards=  (props)=>{
             <PostItem post={post}/>
         </div>)
     })
+
+
+
 }
 
+
+fetchFeed= async()=>{
+    //this.setState({feedLoading:true})
+   let url = api.backaddr+ '/api/feed';
+   let options = {
+       method: "GET",
+       headers: {
+           "Content-Type": "application/json",
+           "Cache-Control": "no-cache, no-store, must-revalidate",
+           Pragma: "no-cache",
+           token: localStorage.getItem("token").toString()
+       }
+   };
+   let responseRaw = await fetch(url, options);
+   let response = await responseRaw.json();
+   
+   let tempPosts = []
+   tempPosts = this.state.feedPosts!==null?tempPosts.concat(this.state.feedPosts):[]
+   tempPosts = tempPosts.concat(response.posts)
+
+   console.log("🚀 ~ file: HomeLogged.jsx ~ line 478 ~ HomeLogged ~ fetchFeed=async ~ tempPosts", tempPosts)
+   this.setState({feedPosts:tempPosts, showSpinner:false, feedLoading:false, updated:false})
+   
+}
+
+fetchFollowingPosts = async ()=>{
+   this.setState({followLoading:true})
+   let url = api.backaddr+ '/api/following';
+   let options = {
+       method: "GET",
+       headers: {
+           "Content-Type": "application/json",
+           "Cache-Control": "no-cache, no-store, must-revalidate",
+           Pragma: "no-cache",
+           token: localStorage.getItem("token").toString()
+       }
+   };
+   let responseRaw = await fetch(url, options);
+   let response = await responseRaw.json();
+   if(response.ok === 1 && response.posts.length === 0){
+       this.setState({followLoading:false})
+   }
+   this.setState({following:response.posts, showSpinner:false, followLoading:false})
+}
+
+
+
+
+refreshFeed = ()=>{
+    if(this.state.feed){
+        this.setState({feedLoading:true, feedPosts:[]})
+        this.fetchFeed();
+    }else{
+        this.setState({followLoading:true, following:[]})
+        this.fetchFollowingPosts()
+    }
+}
 
     render() {
        
@@ -527,11 +550,11 @@ generateFeedCards=  (props)=>{
                 <Col md={{size:0}} lg={{size:2, order:1}}> </Col>
                     <Col  xs={{size:12, order:2}} sm={{size:12, order:2}} md={{size:12, order:2}} lg={{size:5, order:2}}>
                     <div>
-                       <Row>
-                           <Col>
+                       <Row >
+                           <Col className="">
                     <ButtonDropdown outline color="primary" isOpen={this.state.dropdownOpen} toggle={this.toggleDrop} className="float-left">
                     <DropdownToggle caret outline color="primary">
-                                        {this.state.dropDownText[this.state.dropDownTextIndex]}
+                                        {this.state.feed!==null?this.state.dropDownText[this.state.dropDownTextIndex]:<Spinner size="sm"/>}
                             </DropdownToggle>
       <DropdownMenu>
         <DropdownItem onClick={()=>{
@@ -541,16 +564,18 @@ generateFeedCards=  (props)=>{
         <DropdownItem onClick={()=>{
             //fetch following posts
             this.fetchFollowingPosts()
-            this.setState({feed:false, dropDownTextIndex:1})
+            this.setState({feed:false, dropDownTextIndex:1, feedPosts:[]})
         }}>Following</DropdownItem>
       </DropdownMenu>
     </ButtonDropdown>
-    </Col><Col>
+    <img style={{padding:'2px', marginLeft:'10px'}} className="icon-medium float-left refresh-rotate change-cursor" src={refresh} title="Refresh feed" onClick={()=>{this.refreshFeed()}}></img>
+    </Col>
+    <Col>
     <Button outline color="danger" className="float-right" onClick={()=>{window.location.assign('/popular')}}>Last 12h most upvoted</Button>
     </Col>
     </Row>
 
-        {(this.state.feedPosts && this.state.feed)?this.generateFeedCards():this.generateFollowingItems()}
+        {(this.state.feed)?this.generateFeedCards():this.generateFollowingItems()}
                         </div>
                         </Col>
                            
@@ -597,12 +622,23 @@ const RecentlyScheleton = ()=>{
 export default HomeLogged;
 
 
+
 /**
- *  <Row >
-                    <Col md={{size:0}} lg={{size:2, order:1}} ></Col>
-                    <Col xs={{size:12, order:2}} sm={{size:12, order:2}} md={{size:12, order:2}} lg={{size:5, order:2}}>
-                    {this.state.showSpinner? <GenerateSkeletonsCard/>:null
-                    }
-                    </Col>
-                </Row>
+ * 
+ *  OLD SCROLL
+ *  handleScroll=()=>{
+       
+        const windowHeight = "innerHeight" in window ? window.innerHeight : document.documentElement.offsetHeight;
+        const body = document.body;
+        const html = document.documentElement;
+        const docHeight = Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.scrollHeight, html.offsetHeight);
+        const windowBottom = Math.round(windowHeight + window.pageYOffset);
+        const myCheck = document.scrollingElement.scrollTop;
+        const why = (myCheck-300)/10;
+        if (windowBottom+120 >= docHeight) {
+            this.setState({showSpinner:true, scrollHeightCheck:why})
+                this.fetchFeed();
+        }
+       
+    }
  */

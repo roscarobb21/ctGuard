@@ -234,7 +234,8 @@ passport.use(
                 }
                 let defaultAvatar = "default.jpg";
                 let passHash = await bcrypt.hash(pass, bcrypt.genSaltSync(10));
-               await  User.create({username:usrname, email: em, password : passHash, avatarUrl:defaultAvatar, darkTheme:false})
+                let regToken = randomstring.generate(50);
+               await  User.create({username:usrname, email: em, password : passHash, avatarUrl:defaultAvatar, darkTheme:false, registrationToken:regToken, confirmed:false})
                let user = await User.findOne({username:usrname})
                await NotificationsQ.create({user_id:user._id.toString(), rooms:{}, comments:{}})
                let achiv = await Achivements.find();
@@ -281,14 +282,18 @@ passport.use(
             let user =await User.findOne({email:email})
 
           if (!user) {
-            return done(null, false, { message: 'User not found' });
+            return done(null, false, { message: 'Email or password incorrect' });
           }
-          
           let validate = await bcrypt.compare(password, user.password)
 
           if (!validate) {
-               return done(null, false, { message: 'Wrong Password' });
+               return done(null, false, { message: 'Email or password incorrect' });
           }
+          if(!user.confirmed){
+            return done(null, false, { message: 'Email address not confirmed' });
+          }
+          
+
           return done(null, user, { message: 'Logged in Successfully' });
         } catch (error) {
           return done(error);

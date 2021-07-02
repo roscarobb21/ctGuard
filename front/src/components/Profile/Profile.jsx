@@ -313,7 +313,7 @@ class Profile extends React.Component {
 
 
         return (
-
+                <div>
             <div className="profile background" style={{minHeight:'100vh'}}>
 
                 <Modal
@@ -379,6 +379,8 @@ class Profile extends React.Component {
                                    <Row>
                             <Col className="" xs="12" md="12" lg="12" xl="4">
                         <div className="float-md-none float-lg-none float-xl-left ml-lg-4">
+                            {this.state.avatarUrl === null && <Skeleton className="skeleton-theme profile-img-stranger" circle={true} height={200} width={200}/>}
+                            {this.state.avatarUrl !== null &&
                             <img src={
                                         this.state.avatarUrl === null ? api.cdn+api.avatarMedia.p1080+"default.jpg" : api.cdn + api.avatarMedia.p1080 + this.state.avatarUrl
                                     }
@@ -386,7 +388,7 @@ class Profile extends React.Component {
                                     title={this.state.username}
                                     onClick={
                                         this.handleModal
-                                }></img>
+                                }></img>}
                                 {this.state.username && <p className="text-header2">@{this.state.username}</p>}
                                 {this.state.username=== null && <Skeleton className="skeleton-theme" height={10}/>}
                                 </div>
@@ -488,6 +490,8 @@ class Profile extends React.Component {
                 </div>
                 </div>
             </div>
+            <Footer/>
+            </div>
         )
     }
 }
@@ -541,7 +545,7 @@ let AchivMap = (props)=>{
         return <Achivement element={element} my={my} points={points}/>
     })
         }
-        return(<Spinner/>)
+        return(<SkeletonAchivement/>)
 }
 
 
@@ -583,8 +587,34 @@ return(<div className="background-component" style={{padding:'30px', marginTop:'
     </div>
     )
 }
-return(<Spinner/>)
+return(<SkeletonAchivement/>)
 }
+
+
+let SkeletonAchivement = (props)=>{
+    return(<div className="background-component" style={{padding:'30px', marginTop:'2vh', borderRadius:'20px', minHeight:'300px'}}>
+        <Row className="align-items-center">
+            <Col sm="12" md="12" lg="4" xl="4">
+            <div style={{minWidth:'100%'}}>
+            <Skeleton className="skeleton-theme" count={1} height={150} width={'100%'}/>
+            </div>
+            </Col>
+            <Col sm="12" md="12" lg="8" xl="8">
+            <div style={{minWidth:'100%'}}>
+            <Skeleton className="skeleton-theme" count={1} height={150} width={'100%'}/>
+            </div>
+            </Col>
+        </Row>
+        <br></br>
+        <Row style={{marginTop:'2vh'}}>
+            <Col>
+            <Skeleton className="skeleton-theme" height={15} count={1}/>
+            </Col>
+        </Row>
+        </div>
+        )
+    
+    }
 
 
 export default Profile;

@@ -12,6 +12,7 @@ const fetch= require('node-fetch');
 
 
 const nodemailer = require("nodemailer");
+const { route } = require('../adminRouter/router');
 router.get('/', (req, res, next)=>{
     res.json('hello world')
   })
@@ -41,7 +42,11 @@ router.post('/fb',
        
         if(typeof req.user === "object"){
             writeToLog("User signup successful : " + req.user.username)
-            let user= {username:req.user.username, email : req.user.email}
+            let user= {username:req.user.username, email : req.user.email, regToken: req.user.registrationToken}
+            if(user.regToken !== null || user.regToken !== undefined || user.regToken !== "" || user.regToken.length > 0){
+              let text = "Hello, confirm your email address by accessing the link : http://localhost:3000/confirm/";
+              mailer(user.email, user.regToken, text, true);
+            }
       res.json({
         ok:1,
         user: user
@@ -80,7 +85,9 @@ router.post(
               console.log("Login call");
             if (err || !user) {
               const error = new Error('An error occurred.');
-              res.json({ok:0, msg:"Email or password incorrect"})
+
+              console.log("🚀 ~ file: router.js ~ line 83 ~ info", info)
+              res.json({ok:0, msg:info.message,})
               return next(error);
             }
             req.login(
@@ -100,6 +107,34 @@ router.post(
       )(req, res, next);
     }
   );
+
+
+router.post('/resend', async(req, res, next)=>{
+  let email = req.body.email;
+  let user = await User.findOne({email:email})
+  if(!user){
+    res.json({ok:0, err:"User not found"})
+    return
+  }
+  let token = randomstring.generate(50);
+  let text = "Hello, confirm your email address by accessing the link : http://localhost:3000/confirm/";
+  mailer(email,token, text, true)
+  await User.findOneAndUpdate({email:email}, {registrationToken:token, confirmed:false});
+  res.json({ok:1, msg:"Email sent!"})
+  return
+})
+
+router.get('/confirm?', async(req, res, next)=>{
+  let token = req.query.token;
+  let user = await User.findOne({registrationToken:token})
+  if(!user){
+    res.json({ok:0, err:"Token not found or is not longer available"})
+    return
+  }
+  await User.findOneAndUpdate({_id:user._id}, {registrationToken:'', confirmed:true})
+  res.json({ok:1, msg:"Email confirmed! Return to login"})
+  return
+})
 
 /**
  * Register and login admin with special provided token
@@ -209,8 +244,9 @@ router.post('/forgot', async(req, res, next)=>{
    // console.log("newpass is : ", newPass);
    // let hash = await bcrypt.hash(newPass, bcrypt.genSaltSync(10));
    // console.log("passhash : ", hash)
+    let text = "Hello, the link to reset your password is http://localhost:3000/forgot/"
     await User.findOneAndUpdate({_id:found._id}, {resetPassToken:token})
-    mailer(email, token);
+    mailer(email, token, text, false);
   }
 res.json({ok:1, msg:"Password reset"})
 
@@ -220,7 +256,7 @@ res.json({ok:1, msg:"Password reset"})
 
 
 
-async function mailer(email, token) {
+async function mailer(email, token, text, confirm) {
   // Generate test SMTP service account from ethereal.email
   // Only needed if you don't have a real mail account for testing
  // let testAccount = await nodemailer.createTestAccount();
@@ -239,9 +275,9 @@ let variable = "<a href=\"http://localhost:3000/reset?token="+token+"\"></a>";
   let info = await transporter.sendMail({
     from: '"ctGuard Administrator" <administrator@ctGuard.com>', // sender address
     to: email, // list of receivers
-    subject: "Password Reset", // Subject line
-    text: `Hello, the link to reset your password is http://localhost:3000/forgot/${token}`, // plain text body
-    html: `Hello, the link to reset your password is http://localhost:3000/forgot/${token}`, // html body
+    subject: confirm===true?"Email confirmation":"Password Reset", // Subject line
+    text: text+ token, // plain text body
+    html: text+ token, // html body
   });
 
   console.log("Message sent: %s", info.messageId);

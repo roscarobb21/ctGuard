@@ -51,7 +51,7 @@ let insertDefaultValuesForEverything = async () => {
 
     let UserCheck = await User.findOne({username: 'admin'})
     if(UserCheck===null){
-         await User.insertMany({username: 'admin', email: 'admin@ctGuard.com', password: pass})
+         await User.insertMany({username: 'admin', email: 'admin@ctGuard.com', password: pass, confirmed:true, registrationToken:""})
         writeToLog('DB INFO: Default admin inserted')
     }else {
         writeToLog('DB INFO: User model has admin already')

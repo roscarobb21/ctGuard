@@ -43,7 +43,7 @@ router.get('/myid', async(req, res, next)=>{
     let id = req.user._id;
     let found = await User.findOne({_id:id});
     if(found){
-        res.json({ok:1, myID: found._id, avatarUrl:found.avatarUrl});
+        res.json({ok:1, myID: found._id, avatarUrl:found.avatarUrl, username:found.username});
         return
 
     }else {
@@ -756,7 +756,7 @@ router.get('/specificPost?', async(req, res, next)=>{
 let uid = req.user._id;
 let pid = req.query.id;
 if(pid.toString().length!== 24 ){
-    res.json({ok:0, err:"Post id provided does not follow id schema"})
+    res.json({ok:0, err:"Information regarding this post was not found"})
     return
 }
 let found = await User.findOne({_id:uid})
@@ -786,7 +786,7 @@ if(found){
         res.json({ok:1, post:postFound, up:up, follow:follow, user:found, subscribe:sub, commentArr:commentArr, followNum:followNum, upVotesNum:upVotesNum})
         return
     }else {
-        res.json({ok:0, err:"post not found"})
+        res.json({ok:0, err:"Post not found"})
     }
 }else {
     res.json({ok:0, err:"user not found"})

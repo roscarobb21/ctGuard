@@ -17,6 +17,7 @@ import { Button, Form, FormGroup, Label, Input, FormText, Spinner,  Modal,
   ModalFooter, } from 'reactstrap';
 import ImageUploader from 'react-images-upload';
 
+import Skeleton from 'react-loading-skeleton';
 import { CountryDropdown, RegionDropdown, CountryRegionData } from 'react-country-region-selector';
 import DarkModeToggle from "react-dark-mode-toggle";
 import api from '../../constants/api'
@@ -386,7 +387,21 @@ async uploadImg() {
   }
     render() {
       if(this.state.user === null){
-        return null;
+       return (<div><NavBar/>
+       <div style={{minHeight:'94vh'}} className="background">
+        <div className="settings-page-wrapper">
+        <Container className="settings-wrapper background-component">
+          
+        <Skeleton className="skeleton-theme" height={10} count={1} width={100}/>
+          <Skeleton className="skeleton-theme" height={50} count={1}/>
+          <hr></hr>
+          <br></br>
+          <Skeleton className="skeleton-theme" height={400} count={1}/>
+          </Container>
+        </div>
+         
+       </div>
+       </div>)
       }
       const { country, region } = this.state;
         return (

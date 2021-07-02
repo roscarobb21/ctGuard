@@ -12,17 +12,17 @@ import Notification from '../../assets/notification.wav';
 
 
 import { Badge } from 'reactstrap';
-import ExpandCollapse from 'react-expand-collapse';
 import api from '../../constants/api';
 import Divider from '@material-ui/core/Divider';
+import moment from 'moment';
 
-
+import notFoundImg from '../../assets/notFoundError.png';
 import { UncontrolledDropdown, DropdownToggle, DropdownMenu, DropdownItem } from 'reactstrap';
 import { InView } from 'react-intersection-observer';
 
 import Video from 'react-responsive-video';
 import Skeleton from 'react-loading-skeleton';
-import PageProgress from 'react-page-progress';
+
 /**
  * upvote svg
  */
@@ -35,7 +35,7 @@ import PageProgress from 'react-page-progress';
  import starDone from '../../assets/starDone.png';
 
 
- import followSound from '../../assets/followSound.wav';
+import followSound from '../../assets/followSound.wav';
 import PlaceImg from '../../assets/global.png';
 import bellDone from '../../assets/bellDone.svg';
 import bellNone from '../../assets/bellNone.svg';
@@ -44,8 +44,10 @@ import expandPng from '../../assets/expand.png';
 import postComment from '../../assets/arrow.png';
 
 import LargeMedia from '../LargeMediaViewer/LargeMediaViewer'
+
+import Footer from '../Footer/Footer';
+
 import './Admin.css';
-import { KeyboardReturnRounded, ThreeSixtyTwoTone } from '@material-ui/icons';
 
 const io = require("socket.io-client");
 /**
@@ -63,7 +65,9 @@ constructor(props){
 super(props)
 this.state={
     myID:null,
+    myUsername:null,
     myAvatarUrl:null,
+    previousStatus:null,
     err:"",
     postBodyExpand:false,
     loading:true,
@@ -81,6 +85,7 @@ this.state={
     statusDropdown:null,
     categoryDropdown:null,
     upVotesNum:null,
+    replacePost:false,
 }
 
 }
@@ -98,6 +103,7 @@ AdminPostResponse=()=>{
         alert('You cannot leave the response empty!')
         return
     }
+    this.setState({replacePost:true})
     let pid = this.state.post._id.toString();
     let body = this.state.authoritiesResponse.toString();
     let category = this.state.categoryDropdown===null?this.state.post.category:this.state.categoryDropdown;
@@ -118,14 +124,24 @@ AdminPostResponse=()=>{
             currentStatus:status
         }),
     };
+    let obj = {}
+    obj.avatarUrl = this.state.myAvatarUrl;
+    obj.body = body;
+    obj.category = category;
+    obj.currentStatus = status;
+    obj.postedByUsername = this.state.myUsername
+    obj.postDate = moment(Date.now()).format("MMMM Do YYYY, h:mm:ss a");
+    obj.previousStatus = this.state.post.status
+    let newPost = this.state.post
+    newPost.authoritiesResponse.push(obj)
     this.socket.emit("postResponse")
-    this.socket.on('postResponsefetch', (pid)=>{
-        //increment number on pid from notificationsFeed on fetch
-       alert("something")
-     })
+    // this.socket.on('postResponsefetch', (pid)=>{
+    //     //increment number on pid from notificationsFeed on fetch
+    //    alert("something")
+    //  })
 
     fetch(url, options).then(response=>response.json()).then(response=>{
-       window.location.reload();
+        this.setState({post:newPost, authoritiesResponse:"", replacePost:false})
     })
 
 }
@@ -144,8 +160,9 @@ getMyID = ()=>{
        }
    };
    fetch(url, options).then(response=>response.json()).then(response=>{
+       console.log("🚀 ~ file: AdminPost.jsx ~ line 157 ~ AdminPost ~ fetch ~ response", response)
        if(response.ok === 1){
-           this.setState({myID:response.myID, myAvatarUrl:response.avatarUrl})
+           this.setState({myID:response.myID, myAvatarUrl:response.avatarUrl, myUsername:response.username})
        }
    })
 
@@ -331,7 +348,7 @@ mediaMap = (media, inView)=>{
 
 generatePostCarousel = (media, inView)=>{
     if(media.length === 0){
-        return(<div>This post has no media attached</div>)
+        return(<div><span>This post has no media attached</span></div>)
     }
     return(
     <Carousel
@@ -362,6 +379,7 @@ generateAuthoritiesResponse = ()=>{
         )
     }
     let authoritiesReverse = this.state.post.authoritiesResponse.reverse();
+    console.log("🚀 ~ file: AdminPost.jsx ~ line 367 ~ AdminPost ~ authoritiesReverse", authoritiesReverse)
     return authoritiesReverse.map((element, i)=>{
         return(
             <div>
@@ -388,7 +406,7 @@ AuthoritiesResponseBubble = (element, i)=>{
                                 <div style={{textAlign:'justify'}}><span>{element.body}</span></div>
                                 <small className="text-muted float-left" ><span>Status change : {element.previousStatus}-> {element.currentStatus}</span></small>
                                 <br></br>
-                                <small className="text-muted float-left" ><span>{element.postDate}</span></small>
+                                <small className="text-muted float-left" ><span>{ moment(element.postDate).format("MMMM Do YYYY, h:mm:ss a")}</span></small>
                             </Media>
                         </Media>
                     <Divider/>
@@ -465,7 +483,7 @@ refetchComments = (latestId)=>{
   * 
   * @returns POST NEW COMMENT
   */
-commentPost = ()=>{
+  commentPost = ()=>{
     if(this.state.comment.length === 0){ return; }
     let url=api.backaddr+api.authUser+api.routes.postComment;
   
@@ -487,15 +505,15 @@ commentPost = ()=>{
        }),
    };
    document.getElementById("commentTextArea").value = "";
-
+   let audio = new Audio(pop)
+   audio.play();
    fetch(url, options).then(response=>response.json()).then(response=>{
        if(response.ok === 1){
-           this.setState({commentArray:response.newArray})
+           this.setState({commentArray:response.newArray, comment:''})
        }
    })
    obj.postDate= Date.now();
 }
-
 
 /**
  * Generates comment bubbles
@@ -530,7 +548,7 @@ generateCommentBubble = (comment, i)=>{
                                 <a href={"/user/"+comment.postedBy}><p style={{textAlign:'justify'}} > <Badge color="secondary">@{comment.postedByUsername}</Badge></p> </a> 
                             </Media>
                                 <p style={{textAlign:'justify'}}>{comment.body}</p>
-                                <small className="text-muted float-left" >{comment.postDate}</small>
+                                <small className="text-muted float-left" >{moment(comment.postDate).format("MMMM Do YYYY, h:mm:ss a")}</small>
                             </Media>
                         </Media>
                     <Divider/>
@@ -553,7 +571,7 @@ return(
               <a href={"/user/"+comment.postedBy}><p style={{textAlign:'justify'}} > <Badge color="secondary">@{comment.postedByUsername}</Badge></p> </a> 
           </Media>
          <p style={{textAlign:'justify'}}>{comment.body}</p>
-         <small className="text-muted float-left" >{comment.postDate}</small>
+         <small className="text-muted float-left" >{moment(comment.postDate).format("MMMM Do YYYY, h:mm:ss a")}</small>
         </Media>
       </Media>
       <Divider/>
@@ -575,7 +593,7 @@ return(
                   <a href={"/user/"+comment.postedBy}><p style={{textAlign:'justify'}} > <Badge color="secondary">@{comment.postedByUsername}</Badge></p> </a> 
               </Media>
              <p style={{textAlign:'justify'}}>{comment.body}</p>
-             <small className="text-muted float-left" >{comment.postDate}</small>
+             <small className="text-muted float-left" >{moment(comment.postDate).format("MMMM Do YYYY, h:mm:ss a")}</small>
             </Media>
           </Media>
           <Divider/>
@@ -641,32 +659,69 @@ render(){
         return(<div>
             <NavBar/>
             <Container style={{height:'90vh'}}>
-                <Row style={{wdith:'inherit', height:'inherit', marginTop:'30px'}}>
-                    <Col style={{wdith:'inherit', height:'inherit'}} className="d-flex justify-content-center ">
-                        <div className="" style={{width:'inherit'}}>
-                            <PostPageScheleton/>
+            <div className="post-presentation background-component" style={{ backgroundColor:'white', borderRadius:'20px', width:'100%', padding:'20px', marginTop:'30px'}} > 
+                        <Row>
+                            <Col>
+                                <section>
+                                    <div style={{padding:'25px', wordWrap:'break-word', width:'100%', textAlign:'left'}}>
+                                      <Skeleton className="skeleton-theme" height={60} count={1}/>
+                                        </div>
+                                </section>
+                                <section style={{paddingRight:'20px'}}className="float-right">
+                                </section>
+                                </Col>
+                                </Row>
+                               <Row style={{marginTop:'10px'}}>
+                                   <Col>
+                                   <div style={{textAlign:'justify', padding:'0px 25px 0px 25px'}}>
+                               
+                                   <Skeleton className="skeleton-theme" height={15} count={4}/>
+                                  </div>
+                                   </Col>
+                               </Row>
+                               <Row style={{marginTop:'30px'}}>
+                                   <Col>
+                                  
+                                <div style={{padding:'25px'}}>
+                                <Skeleton className="skeleton-theme" height={200} count={1}/>
+                                 </div>
+                  
+                                   </Col>
+                               </Row>
+                               <Divider/>
+                              <div style={{padding:'20px'}}>
+                                     <div className="">
+                                       
+                                   <Skeleton className="skeleton-theme" height={15} count={1}/>
+                                     </div>
+                              </div>
+
                         </div>
-                    </Col>
-                </Row>
             </Container>
             </div>)
     }
     /**
      * Error
      */
-    if(this.state.post === null){
+     if((this.state.post === null || this.state.post === undefined) && !this.state.loading){
         return(<div>
-            <NavBar/>
             <div>
-                <Container>
-                    <Row>
-                        <Col>
-                       {this.state.loading && <Spinner/>}
-                       {this.state.err.length>0?this.state.err:""}
+            <NavBar/>
+        </div>
+            <div style={{minHeight:'96vh'}}>
+                <Container style={{height:'inherit'}}>
+                    <Row style={{height:'inherit', marginTop:'30px'}}>
+                        <Col style={{height:'inherit'}}>
+                        <div className="background-component d-flex justify-content-center" style={{minHeight:'350px', borderRadius:'20px'}}>
+                        <img className="icon-xlarge align-self-center" src={notFoundImg}></img>
+                      <span className="text-header2 align-self-center">{this.state.err.length>0?this.state.err:""}</span>
+                       </div>
                         </Col>
                     </Row>
                 </Container>
+                
             </div>
+            <Footer/>
         </div>)
     }
 
@@ -711,7 +766,7 @@ render(){
                                 <section style={{paddingRight:'20px'}}className="float-right">
                                     <img src={PlaceImg} style={{width:'32px', height:'32px'}}></img>
                                     &nbsp;
-                                    <span>{this.state.post.country}</span>,&nbsp;
+                                    <span>{this.state.post.country},</span>&nbsp;
                                     <span>{this.state.post.region}</span>
                                 </section>
                                 </Col>
@@ -786,7 +841,7 @@ render(){
                                      <div className="float-right">
                                         <small>
                                             <a title={'Link to '+this.state.post.postedByUsername+'\'s profile'} href={'/user/'+this.state.post.postedBy} className="" >@{this.state.post.postedByUsername}</a>
-                                            &nbsp;<span>{this.state.post.datePosted}</span>&nbsp;<span style={{color:statusColor}}>{this.state.post.status}</span></small>
+                                            &nbsp;<span>{moment(this.state.post.datePosted).format("MMMM Do YYYY, h:mm:ss a")}</span>&nbsp;<span style={{color:statusColor}}>{this.state.post.status}</span></small>
                                      </div>
                               </div>
 
@@ -800,7 +855,7 @@ render(){
                         <Row   className="">
                             <Col style={{minHeight:'350px'}}>
                             <p className="text-header1 float-left">Authorities Response</p>
-                            <p className="float-left">Latest update on <span style={{color:"#08d9d6"}}>{this.state.post.lastUpdated}</span></p>
+                            <p className="float-left">Latest update on <span style={{color:"#08d9d6"}}>{moment(this.state.post.lastUpdated).format("MMMM Do YYYY, h:mm:ss a")}</span></p>
                             </Col>
                             <Col style={{minHeight:'350px',maxHeight:'450px', overflowY:'scroll'}}>
                             <div className='' style={{}}>
@@ -850,7 +905,8 @@ render(){
                                     </DropdownMenu>
                                     </UncontrolledDropdown>
                                 </div>
-                                <Button className="float-right" color="primary" onClick={this.AdminPostResponse}>Post!</Button>
+                                {this.state.replacePost && <Spinner className="float-right" color="primary"/>}
+                               {!this.state.replacePost&& <Button className="float-right" color="primary" onClick={this.AdminPostResponse}>Post!</Button>}
                             </Col>
                         </Row>
                         </div>
@@ -882,6 +938,7 @@ render(){
                                 <Input type="textarea" name="text" id="commentTextArea" 
                                 placeholder="Insert your comment here"
                                 spellCheck="false"
+                                value={this.state.comment}
                                 onChange={(evt)=>{this.setState({comment:evt.target.value})}}
                                 onKeyDown={(evt)=>{
                                     console.log("EVT : ", evt);

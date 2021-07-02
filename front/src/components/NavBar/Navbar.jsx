@@ -43,6 +43,7 @@ import Geocode from "react-geocode";
 import security from '../../assets/security.png';
 import avatarLogo from '../../assets/hipster.png';
 
+import Skeleton from 'react-loading-skeleton';
 import searchImg from '../../assets/search.png';
 /**Routes import from constants */
 import api from '../../constants/api'
@@ -603,13 +604,16 @@ class NavBar extends React.Component {
                             }>
 
                                 <DropdownToggle nav >
+                                    {this.state.avatarUrl === null && <Skeleton className="skeleton-theme" circle={true} height={50} width={50} />}
+                                {this.state.avatarUrl !== null && 
                                     <img src={
                                             this.state.avatarUrl === null ? avatarLogo : api.cdn + api.avatarMedia.p128 + this.state.avatarUrl
                                         }
-                                        className="navbar-avatar-img"></img>
+                                        className="navbar-avatar-img"></img>}
+
                                         {this.state.triggerAvatarBadge && <Badge color="primary">{this.state.pushMsg}</Badge>}
                                 </DropdownToggle>
-                                <DropdownMenu right className="navbar-dropdown-wrapper helper" style={{width:'300px'}}>
+                                <DropdownMenu right className="navbar-dropdown-wrapper" style={{width:'300px'}}>
                                     <DropdownItem header className="accent-color">Profile</DropdownItem>
                                     <DropdownItem
                                     className="hide-outline"
